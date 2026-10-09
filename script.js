@@ -93,8 +93,11 @@ form.addEventListener("submit", async function(e){
         price:
         Number(
             document.getElementById("price").value
+        ) *
+        Number(
+            document.getElementById("qty").value
         ),
-
+        
         status:
         document.getElementById("status").value,
 
