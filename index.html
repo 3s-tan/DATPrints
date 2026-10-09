@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>3D Printing Order Manager</title>
+
+    <!-- Link to the external CSS file -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <main class="container">
+
+       <header class="page-header">
+    <div class="header-top">
+        <div>
+            <h1>3D Printing Order Manager</h1>
+            <p>Manage and monitor customer orders</p>
+        </div>
+
+        <button id="themeToggle" class="theme-btn">
+            🌙 Dark Mode
+        </button>
+    </div>
+</header>
+
+        <!-- Dashboard Summary -->
+        <section class="dashboard">
+
+            <div class="card">
+                <h2 id="totalOrders">0</h2>
+                <p>Total Orders</p>
+            </div>
+
+            <div class="card">
+                <h2 id="pendingOrders">0</h2>
+                <p>Pending Orders</p>
+            </div>
+
+            <div class="card">
+                <h2 id="completedOrders">0</h2>
+                <p>Completed Orders</p>
+            </div>
+
+            <div class="card">
+                <h2>
+                    ₱<span id="totalSales">0.00</span>
+                </h2>
+                <p>Estimated Sales</p>
+            </div>
+
+        </section>
+
+        <!-- Order Entry Form -->
+        <section class="form-section">
+
+            <h2>Add New Order</h2>
+
+            <form id="orderForm">
+
+                <div class="form-group">
+                    <label for="customer">Customer Name</label>
+                    <input
+                        type="text"
+                        id="customer"
+                        placeholder="Enter customer name"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="contact">Contact Number</label>
+                    <input
+                        type="text"
+                        id="contact"
+                        placeholder="Enter contact number"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="item">Item</label>
+                    <input
+                        type="text"
+                        id="item"
+                        placeholder="Enter item name"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="qty">Quantity</label>
+                    <input
+                        type="number"
+                        id="qty"
+                        placeholder="Enter quantity"
+                        min="1"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="color">Color</label>
+                    <input
+                        type="text"
+                        id="color"
+                        placeholder="Enter requested color"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="dueDate">Due Date</label>
+                    <input
+                        type="date"
+                        id="dueDate"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="price">Estimated Price</label>
+                    <input
+                        type="number"
+                        id="price"
+                        placeholder="Enter estimated price"
+                        min="0"
+                        step="0.01"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Order Status</label>
+
+                    <select id="status">
+                        <option value="Pending">Pending</option>
+                        <option value="Printing">Printing</option>
+                        <option value="Ready">Ready</option>
+                        <option value="Delivered">Delivered</option>
+                    </select>
+                </div>
+
+                <div class="form-group notes-group">
+                    <label for="notes">Notes</label>
+
+                    <textarea
+                        id="notes"
+                        rows="3"
+                        placeholder="Add customization details or other notes"
+                    ></textarea>
+                </div>
+
+                <button type="submit" id="submitButton">
+                    Add Order
+                </button>
+
+            </form>
+
+        </section>
+
+        <!-- Order List -->
+        <section class="orders-section">
+
+            <div class="orders-header">
+                <h2>Order List</h2>
+
+                <input
+                    type="search"
+                    id="search"
+                    placeholder="Search by customer or item"
+                >
+            </div>
+
+            <div class="table-container">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Contact</th>
+                            <th>Item</th>
+                            <th>Quantity</th>
+                            <th>Color</th>
+                            <th>Due Date</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="orderTable">
+                        <!-- Orders will be inserted by script.js -->
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Link to the external JavaScript file -->
+    <script src="script.js"></script>
+
+</body>
+</html>
