@@ -8,7 +8,7 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>DATPrints</title>
+    <title>3D Printing Order Manager</title>
 
     <!-- Link to the external CSS file -->
     <link rel="stylesheet" href="styles.css">
@@ -21,7 +21,7 @@
        <header class="page-header">
     <div class="header-top">
         <div>
-            <h1>DATPrints</h1>
+            <h1>3D Printing Order Manager</h1>
             <p>Manage and monitor customer orders</p>
         </div>
 
@@ -124,7 +124,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="price">Price Per Piece</label>
+                    <label for="price">Estimated Price</label>
                     <input
                         type="number"
                         id="price"
@@ -167,50 +167,160 @@
         <!-- Order List -->
         <section class="orders-section">
 
-            <div class="orders-header">
-                <h2>Order List</h2>
+    <div class="orders-header">
+        <h2>Order List</h2>
 
-                <input
-                    type="search"
-                    id="search"
-                    placeholder="Search by customer or item"
-                >
-            </div>
+        <input
+            type="search"
+            id="search"
+            placeholder="Search customer, item, contact, color..."
+        >
+    </div>
 
-            <div class="table-container">
+    <div class="order-filters">
 
-                <table>
+        <div class="filter-group">
+            <label for="statusFilter">
+                Filter Status
+            </label>
 
-                    <thead>
-                        <tr>
-                            <th>Order ID</th>
-                            <th>Customer</th>
-                            <th>Contact</th>
-                            <th>Item</th>
-                            <th>Quantity</th>
-                            <th>Color</th>
-                            <th>Due Date</th>
-                            <th>Price</th>
-                            <th>Status</th>
-                            <th>Notes</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
+            <select id="statusFilter">
+                <option value="All">
+                    All Statuses
+                </option>
 
-                    <tbody id="orderTable">
-                        <!-- Orders will be inserted by script.js -->
-                    </tbody>
+                <option value="Pending">
+                    Pending
+                </option>
 
-                </table>
+                <option value="Printing">
+                    Printing
+                </option>
 
-            </div>
+                <option value="Ready">
+                    Ready
+                </option>
 
-        </section>
+                <option value="Delivered">
+                    Delivered
+                </option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="dueDateFilter">
+                Due Date
+            </label>
+
+            <select id="dueDateFilter">
+
+                <option value="All">
+                    All Due Dates
+                </option>
+
+                <option value="Overdue">
+                    Overdue
+                </option>
+
+                <option value="Today">
+                    Due Today
+                </option>
+
+                <option value="Next7Days">
+                    Next 7 Days
+                </option>
+
+                <option value="Future">
+                    Future Orders
+                </option>
+
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="sortFilter">
+                Sort
+            </label>
+
+            <select id="sortFilter">
+
+                <option value="Priority">
+                    Status Priority
+                </option>
+
+                <option value="Newest">
+                    Newest First
+                </option>
+
+                <option value="DueSoon">
+                    Due Soon
+                </option>
+
+                <option value="DueLate">
+                    Due Late
+                </option>
+
+            </select>
+        </div>
+
+        <button
+            type="button"
+            id="clearFilters"
+            class="clear-filter-btn"
+        >
+            Clear Filters
+        </button>
+
+    </div>
+
+    <div class="table-container">
+
+        <table>
+
+            <thead>
+                <tr>
+
+                    <th>Order ID</th>
+
+                    <th>Customer</th>
+
+                    <th>Contact</th>
+
+                    <th>Item</th>
+
+                    <th>Qty</th>
+
+                    <th>Color</th>
+
+                    <th>Due Date</th>
+
+                    <th>Unit Price</th>
+
+                    <th>Total Price</th>
+
+                    <th>Status</th>
+
+                    <th>Notes</th>
+
+                    <th>Actions</th>
+
+                </tr>
+            </thead>
+
+            <tbody id="orderTable">
+                <!-- Firebase Orders -->
+            </tbody>
+
+        </table>
+
+    </div>
+
+</section>
 
     </main>
 
     <!-- Link to the external JavaScript file -->
-   <script type="module" src="script.js"></script>
+    <script type="module" src="script.js"></script>
 
 </body>
 </html>
