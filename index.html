@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
 
@@ -8,114 +9,235 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>3D Printing Order Manager</title>
+    <meta
+        name="description"
+        content="DATPrints shared 3D printing order manager"
+    >
 
-    <!-- Link to the external CSS file -->
+    <title>DATPrints Order Manager</title>
+
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
-    <main class="container">
+    <!-- =====================================
+         LOGIN SCREEN
+    ====================================== -->
 
-       <header class="page-header">
-    <div class="header-top">
-        <div>
-            <h1>3D Printing Order Manager</h1>
-            <p>Manage and monitor customer orders</p>
+    <section id="loginScreen" class="login-screen">
+
+        <div class="login-card">
+
+            <div class="login-logo">
+                DP
+            </div>
+
+            <h1>DATPrints</h1>
+
+            <p>
+                3D Printing Order Manager
+            </p>
+
+            <button
+                type="button"
+                id="googleSignInButton"
+                class="google-sign-in-button"
+            >
+                Sign in with Google
+            </button>
+
+            <p class="login-note">
+                Only authorized DATPrints accounts can access
+                the order dashboard.
+            </p>
+
+            <p
+                id="loginMessage"
+                class="login-message"
+                aria-live="polite"
+            ></p>
+
         </div>
 
-        <button id="themeToggle" class="theme-btn">
-            🌙 Dark Mode
-        </button>
-    </div>
-</header>
+    </section>
 
-        <!-- Dashboard Summary -->
-        <section class="dashboard">
 
-            <div class="card">
-                <h2 id="totalOrders">0</h2>
-                <p>Total Orders</p>
+    <!-- =====================================
+         MAIN APPLICATION
+    ====================================== -->
+
+    <main id="appContainer" class="app-container hidden">
+
+        <!-- HEADER -->
+
+        <header class="page-header">
+
+            <div class="header-top">
+
+                <div>
+                    <h1>DATPrints</h1>
+
+                    <p>
+                        3D Printing Order Manager
+                    </p>
+                </div>
+
+                <div class="header-actions">
+
+                    <button
+                        type="button"
+                        id="themeToggle"
+                        class="theme-btn"
+                    >
+                        🌙 Dark Mode
+                    </button>
+
+                    <button
+                        type="button"
+                        id="signOutButton"
+                        class="sign-out-button"
+                    >
+                        Sign Out
+                    </button>
+
+                </div>
+
             </div>
 
-            <div class="card">
-                <h2 id="pendingOrders">0</h2>
-                <p>Pending Orders</p>
+            <div class="signed-in-user">
+
+                <span>Signed in as:</span>
+
+                <strong id="userEmail"></strong>
+
             </div>
 
-            <div class="card">
-                <h2 id="completedOrders">0</h2>
-                <p>Completed Orders</p>
-            </div>
+        </header>
 
-            <div class="card">
-                <h2>
+
+        <!-- DASHBOARD SUMMARY -->
+
+        <section class="dashboard-grid">
+
+            <article class="dashboard-card">
+                <span class="dashboard-label">
+                    Total Orders
+                </span>
+
+                <strong id="totalOrders">
+                    0
+                </strong>
+            </article>
+
+            <article class="dashboard-card">
+                <span class="dashboard-label">
+                    Active Orders
+                </span>
+
+                <strong id="pendingOrders">
+                    0
+                </strong>
+            </article>
+
+            <article class="dashboard-card">
+                <span class="dashboard-label">
+                    Delivered
+                </span>
+
+                <strong id="completedOrders">
+                    0
+                </strong>
+            </article>
+
+            <article class="dashboard-card">
+                <span class="dashboard-label">
+                    Total Sales
+                </span>
+
+                <strong>
                     ₱<span id="totalSales">0.00</span>
-                </h2>
-                <p>Estimated Sales</p>
-            </div>
+                </strong>
+            </article>
 
         </section>
 
-        <!-- Order Entry Form -->
+
+        <!-- ORDER FORM -->
+
         <section class="form-section">
 
-            <h2>Add New Order</h2>
+            <h2>Add Order</h2>
 
             <form id="orderForm">
 
                 <div class="form-group">
-                    <label for="customer">Customer Name</label>
+                    <label for="customer">
+                        Customer Name
+                    </label>
+
                     <input
                         type="text"
                         id="customer"
-                        placeholder="Enter customer name"
                         required
+                        autocomplete="name"
                     >
                 </div>
 
                 <div class="form-group">
-                    <label for="contact">Contact Number</label>
+                    <label for="contact">
+                        Contact
+                    </label>
+
                     <input
                         type="text"
                         id="contact"
-                        placeholder="Enter contact number"
+                        autocomplete="tel"
                     >
                 </div>
 
                 <div class="form-group">
-                    <label for="item">Item</label>
+                    <label for="item">
+                        Item
+                    </label>
+
                     <input
                         type="text"
                         id="item"
-                        placeholder="Enter item name"
                         required
                     >
                 </div>
 
                 <div class="form-group">
-                    <label for="qty">Quantity</label>
+                    <label for="qty">
+                        Quantity
+                    </label>
+
                     <input
                         type="number"
                         id="qty"
-                        placeholder="Enter quantity"
                         min="1"
+                        value="1"
                         required
                     >
                 </div>
 
                 <div class="form-group">
-                    <label for="color">Color</label>
+                    <label for="color">
+                        Color
+                    </label>
+
                     <input
                         type="text"
                         id="color"
-                        placeholder="Enter requested color"
                     >
                 </div>
 
                 <div class="form-group">
-                    <label for="dueDate">Due Date</label>
+                    <label for="dueDate">
+                        Due Date
+                    </label>
+
                     <input
                         type="date"
                         id="dueDate"
@@ -124,203 +246,269 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="price">Estimated Price</label>
+                    <label for="price">
+                        Unit Price
+                    </label>
+
                     <input
                         type="number"
                         id="price"
-                        placeholder="Enter estimated price"
                         min="0"
                         step="0.01"
                         required
                     >
+
+                    <small>
+                        Price of one item
+                    </small>
+                </div>
+
+                <div class="form-group estimated-total-box">
+
+                    <span>
+                        Estimated Total
+                    </span>
+
+                    <strong id="estimatedTotal">
+                        ₱0.00
+                    </strong>
+
+                    <small id="calculationText">
+                        1 × ₱0.00
+                    </small>
+
                 </div>
 
                 <div class="form-group">
-                    <label for="status">Order Status</label>
+                    <label for="status">
+                        Status
+                    </label>
 
-                    <select id="status">
-                        <option value="Pending">Pending</option>
-                        <option value="Printing">Printing</option>
-                        <option value="Ready">Ready</option>
-                        <option value="Delivered">Delivered</option>
+                    <select id="status" required>
+                        <option value="Pending">
+                            Pending
+                        </option>
+
+                        <option value="Printing">
+                            Printing
+                        </option>
+
+                        <option value="Ready">
+                            Ready
+                        </option>
+
+                        <option value="Delivered">
+                            Delivered
+                        </option>
                     </select>
                 </div>
 
-                <div class="form-group notes-group">
-                    <label for="notes">Notes</label>
+                <div class="form-group form-group-full">
+                    <label for="notes">
+                        Notes
+                    </label>
 
                     <textarea
                         id="notes"
                         rows="3"
-                        placeholder="Add customization details or other notes"
                     ></textarea>
                 </div>
 
-                <button type="submit" id="submitButton">
+                <button
+                    type="submit"
+                    id="submitButton"
+                >
                     Add Order
+                </button>
+
+                <button
+                    type="button"
+                    id="cancelEditButton"
+                    class="cancel-edit-button hidden"
+                >
+                    Cancel Edit
                 </button>
 
             </form>
 
         </section>
 
-        <!-- Order List -->
+
+        <!-- ORDER LIST -->
+
         <section class="orders-section">
 
-    <div class="orders-header">
-        <h2>Order List</h2>
+            <div class="orders-header">
 
-        <input
-            type="search"
-            id="search"
-            placeholder="Search customer, item, contact, color..."
-        >
-    </div>
+                <h2>Order List</h2>
 
-    <div class="order-filters">
+                <input
+                    type="search"
+                    id="search"
+                    placeholder="Search customer, item, contact, color..."
+                >
 
-        <div class="filter-group">
-            <label for="statusFilter">
-                Filter Status
-            </label>
+            </div>
 
-            <select id="statusFilter">
-                <option value="All">
-                    All Statuses
-                </option>
 
-                <option value="Pending">
-                    Pending
-                </option>
+            <!-- FILTERS -->
 
-                <option value="Printing">
-                    Printing
-                </option>
+            <div class="order-filters">
 
-                <option value="Ready">
-                    Ready
-                </option>
+                <div class="filter-group">
 
-                <option value="Delivered">
-                    Delivered
-                </option>
-            </select>
-        </div>
+                    <label for="statusFilter">
+                        Filter Status
+                    </label>
 
-        <div class="filter-group">
-            <label for="dueDateFilter">
-                Due Date
-            </label>
+                    <select id="statusFilter">
 
-            <select id="dueDateFilter">
+                        <option value="All">
+                            All Statuses
+                        </option>
 
-                <option value="All">
-                    All Due Dates
-                </option>
+                        <option value="Pending">
+                            Pending
+                        </option>
 
-                <option value="Overdue">
-                    Overdue
-                </option>
+                        <option value="Printing">
+                            Printing
+                        </option>
 
-                <option value="Today">
-                    Due Today
-                </option>
+                        <option value="Ready">
+                            Ready
+                        </option>
 
-                <option value="Next7Days">
-                    Next 7 Days
-                </option>
+                        <option value="Delivered">
+                            Delivered
+                        </option>
 
-                <option value="Future">
-                    Future Orders
-                </option>
+                    </select>
 
-            </select>
-        </div>
+                </div>
 
-        <div class="filter-group">
-            <label for="sortFilter">
-                Sort
-            </label>
 
-            <select id="sortFilter">
+                <div class="filter-group">
 
-                <option value="Priority">
-                    Status Priority
-                </option>
+                    <label for="dueDateFilter">
+                        Filter Due Date
+                    </label>
 
-                <option value="Newest">
-                    Newest First
-                </option>
+                    <select id="dueDateFilter">
 
-                <option value="DueSoon">
-                    Due Soon
-                </option>
+                        <option value="All">
+                            All Due Dates
+                        </option>
 
-                <option value="DueLate">
-                    Due Late
-                </option>
+                        <option value="Overdue">
+                            Overdue
+                        </option>
 
-            </select>
-        </div>
+                        <option value="Today">
+                            Due Today
+                        </option>
 
-        <button
-            type="button"
-            id="clearFilters"
-            class="clear-filter-btn"
-        >
-            Clear Filters
-        </button>
+                        <option value="Next7Days">
+                            Next 7 Days
+                        </option>
 
-    </div>
+                        <option value="Future">
+                            Future Orders
+                        </option>
 
-    <div class="table-container">
+                    </select>
 
-        <table>
+                </div>
 
-            <thead>
-                <tr>
 
-                    <th>Order ID</th>
+                <div class="filter-group">
 
-                    <th>Customer</th>
+                    <label for="sortFilter">
+                        Sort Orders
+                    </label>
 
-                    <th>Contact</th>
+                    <select id="sortFilter">
 
-                    <th>Item</th>
+                        <option value="Priority">
+                            Status Priority
+                        </option>
 
-                    <th>Qty</th>
+                        <option value="Newest">
+                            Newest First
+                        </option>
 
-                    <th>Color</th>
+                        <option value="DueSoon">
+                            Due Date: Earliest First
+                        </option>
 
-                    <th>Due Date</th>
+                        <option value="DueLate">
+                            Due Date: Latest First
+                        </option>
 
-                    <th>Unit Price</th>
+                    </select>
 
-                    <th>Total Price</th>
+                </div>
 
-                    <th>Status</th>
 
-                    <th>Notes</th>
+                <button
+                    type="button"
+                    id="clearFilters"
+                    class="clear-filter-btn"
+                >
+                    Clear Filters
+                </button>
 
-                    <th>Actions</th>
+            </div>
 
-                </tr>
-            </thead>
 
-            <tbody id="orderTable">
-                <!-- Firebase Orders -->
-            </tbody>
+            <!-- TABLE -->
 
-        </table>
+            <div class="table-container">
 
-    </div>
+                <table>
 
-</section>
+                    <thead>
+
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Contact</th>
+                            <th>Item</th>
+                            <th>Qty</th>
+                            <th>Color</th>
+                            <th>Due Date</th>
+                            <th>Unit Price</th>
+                            <th>Total Price</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="orderTable">
+
+                        <tr>
+                            <td colspan="12" class="empty-table">
+                                Sign in to load orders.
+                            </td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
 
     </main>
 
-    <!-- Link to the external JavaScript file -->
+
+    <!-- Must remain type="module" -->
+
     <script type="module" src="script.js"></script>
 
 </body>
+
 </html>
