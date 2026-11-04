@@ -17,6 +17,14 @@ import {
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
+import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
 
 /* =========================================================
    FIREBASE CONFIGURATION
@@ -32,58 +40,144 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
 const db = getFirestore(app);
-const ordersRef = collection(db, "orders");
+
+const auth = getAuth(app);
+
+const googleProvider =
+    new GoogleAuthProvider();
+
+googleProvider.setCustomParameters({
+    prompt: "select_account"
+});
+
+const ordersRef =
+    collection(db, "orders");
 
 
 /* =========================================================
-   GLOBAL VARIABLES
+   AUTHORIZED DATPRINTS ACCOUNTS
+========================================================= */
+
+const AUTHORIZED_EMAILS = [
+    "ligon.tristanniconavalta@gmail.com",
+    "devierosel28@gmail.com"
+];
+
+
+/* =========================================================
+   VARIABLES
 ========================================================= */
 
 let orders = [];
+
 let editingFirestoreId = null;
+
+let ordersUnsubscribe = null;
 
 
 /* =========================================================
    HTML ELEMENTS
 ========================================================= */
 
-const form = document.getElementById("orderForm");
-const table = document.getElementById("orderTable");
-const search = document.getElementById("search");
+const loginScreen =
+    document.getElementById("loginScreen");
 
-const statusFilter = document.getElementById("statusFilter");
-const dueDateFilter = document.getElementById("dueDateFilter");
-const sortFilter = document.getElementById("sortFilter");
+const appContainer =
+    document.getElementById("appContainer");
+
+const googleSignInButton =
+    document.getElementById("googleSignInButton");
+
+const signOutButton =
+    document.getElementById("signOutButton");
+
+const loginMessage =
+    document.getElementById("loginMessage");
+
+const userEmail =
+    document.getElementById("userEmail");
+
+const form =
+    document.getElementById("orderForm");
+
+const table =
+    document.getElementById("orderTable");
+
+const search =
+    document.getElementById("search");
+
+const statusFilter =
+    document.getElementById("statusFilter");
+
+const dueDateFilter =
+    document.getElementById("dueDateFilter");
+
+const sortFilter =
+    document.getElementById("sortFilter");
 
 const clearFiltersButton =
     document.getElementById("clearFilters");
 
 const submitButton =
-    document.getElementById("submitButton") ||
-    form?.querySelector('button[type="submit"]');
+    document.getElementById("submitButton");
+
+const cancelEditButton =
+    document.getElementById("cancelEditButton");
+
+const quantityInput =
+    document.getElementById("qty");
+
+const unitPriceInput =
+    document.getElementById("price");
+
+const estimatedTotal =
+    document.getElementById("estimatedTotal");
+
+const calculationText =
+    document.getElementById("calculationText");
 
 const themeToggle =
     document.getElementById("themeToggle");
 
 
 /* =========================================================
-   HELPER FUNCTIONS
+   GENERAL HELPERS
 ========================================================= */
 
 function getValue(id) {
-    const element = document.getElementById(id);
+    const element =
+        document.getElementById(id);
 
-    return element ? element.value : "";
+    return element
+        ? element.value
+        : "";
 }
 
 
 function setValue(id, value) {
-    const element = document.getElementById(id);
+    const element =
+        document.getElementById(id);
 
     if (element) {
-        element.value = value ?? "";
+        element.value =
+            value ?? "";
     }
+}
+
+
+function normalizeEmail(email) {
+    return String(email || "")
+        .trim()
+        .toLowerCase();
+}
+
+
+function isAuthorizedEmail(email) {
+    return AUTHORIZED_EMAILS.includes(
+        normalizeEmail(email)
+    );
 }
 
 
@@ -98,52 +192,544 @@ function escapeHTML(value) {
 
 
 function formatMoney(value) {
-    const amount = Number(value) || 0;
+    const amount =
+        Number(value) || 0;
 
-    return amount.toLocaleString("en-PH", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
+    return amount.toLocaleString(
+        "en-PH",
+        {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }
+    );
 }
 
 
-function getLocalDateString(date = new Date()) {
-    const year = date.getFullYear();
+function getLocalDateString(
+    date = new Date()
+) {
+    const year =
+        date.getFullYear();
 
-    const month = String(
-        date.getMonth() + 1
-    ).padStart(2, "0");
+    const month =
+        String(
+            date.getMonth() + 1
+        ).padStart(2, "0");
 
-    const day = String(
-        date.getDate()
-    ).padStart(2, "0");
+    const day =
+        String(
+            date.getDate()
+        ).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
 }
 
 
+/* =========================================================
+   AUTHENTICATION
+========================================================= */
+
+googleSignInButton.addEventListener(
+    "click",
+
+    async function () {
+        googleSignInButton.disabled = true;
+
+        googleSignInButton.textContent =
+            "Signing in...";
+
+        loginMessage.textContent = "";
+
+        try {
+            const result =
+                await signInWithPopup(
+                    auth,
+                    googleProvider
+                );
+
+            const signedInEmail =
+                normalizeEmail(
+                    result.user.email
+                );
+
+            if (
+                !isAuthorizedEmail(
+                    signedInEmail
+                )
+            ) {
+                await signOut(auth);
+
+                loginMessage.textContent =
+                    "This Google account is not authorized to access DATPrints.";
+
+                return;
+            }
+        } catch (error) {
+            console.error(
+                "Google sign-in error:",
+                error
+            );
+
+            if (
+                error.code ===
+                "auth/popup-closed-by-user"
+            ) {
+                loginMessage.textContent =
+                    "Google sign-in was cancelled.";
+            } else if (
+                error.code ===
+                "auth/popup-blocked"
+            ) {
+                loginMessage.textContent =
+                    "The browser blocked the Google login window. Allow pop-ups and try again.";
+            } else if (
+                error.code ===
+                "auth/unauthorized-domain"
+            ) {
+                loginMessage.textContent =
+                    "This website domain is not authorized in Firebase Authentication.";
+            } else {
+                loginMessage.textContent =
+                    "Google sign-in failed. Please try again.";
+            }
+        } finally {
+            googleSignInButton.disabled = false;
+
+            googleSignInButton.textContent =
+                "Sign in with Google";
+        }
+    }
+);
+
+
+signOutButton.addEventListener(
+    "click",
+
+    async function () {
+        try {
+            await signOut(auth);
+        } catch (error) {
+            console.error(
+                "Sign-out error:",
+                error
+            );
+
+            alert(
+                "Unable to sign out. Please try again."
+            );
+        }
+    }
+);
+
+
+onAuthStateChanged(
+    auth,
+
+    async function (user) {
+        stopOrdersListener();
+
+        if (!user) {
+            showLoginScreen();
+            return;
+        }
+
+        const signedInEmail =
+            normalizeEmail(user.email);
+
+        if (
+            !isAuthorizedEmail(
+                signedInEmail
+            )
+        ) {
+            await signOut(auth);
+
+            loginMessage.textContent =
+                "This Google account is not authorized to access DATPrints.";
+
+            return;
+        }
+
+        showDashboard(user);
+        startOrdersListener();
+    }
+);
+
+
+function showLoginScreen() {
+    loginScreen.classList.remove(
+        "hidden"
+    );
+
+    appContainer.classList.add(
+        "hidden"
+    );
+
+    userEmail.textContent = "";
+
+    orders = [];
+
+    editingFirestoreId = null;
+
+    updateDashboard();
+
+    table.innerHTML = `
+        <tr>
+            <td colspan="12" class="empty-table">
+                Sign in to load orders.
+            </td>
+        </tr>
+    `;
+}
+
+
+function showDashboard(user) {
+    loginScreen.classList.add(
+        "hidden"
+    );
+
+    appContainer.classList.remove(
+        "hidden"
+    );
+
+    userEmail.textContent =
+        user.email || "";
+}
+
+
+function stopOrdersListener() {
+    if (
+        typeof ordersUnsubscribe ===
+        "function"
+    ) {
+        ordersUnsubscribe();
+    }
+
+    ordersUnsubscribe = null;
+}
+
+
+/* =========================================================
+   FIRESTORE LISTENER
+========================================================= */
+
+function startOrdersListener() {
+    stopOrdersListener();
+
+    ordersUnsubscribe =
+        onSnapshot(
+            ordersRef,
+
+            function (snapshot) {
+                orders = [];
+
+                snapshot.forEach(
+                    function (documentSnapshot) {
+                        const data =
+                            documentSnapshot.data();
+
+                        /*
+                            Ignore the temporary Firebase
+                            document containing test: "hello".
+                        */
+
+                        if (
+                            !data.customer &&
+                            !data.item
+                        ) {
+                            return;
+                        }
+
+                        orders.push({
+                            firestoreId:
+                                documentSnapshot.id,
+
+                            ...data
+                        });
+                    }
+                );
+
+                applyFiltersAndSort();
+                updateDashboard();
+            },
+
+            function (error) {
+                console.error(
+                    "Firestore listener error:",
+                    error
+                );
+
+                if (
+                    error.code ===
+                    "permission-denied"
+                ) {
+                    alert(
+                        "Access denied. Verify your Google account and Firestore Security Rules."
+                    );
+                } else {
+                    alert(
+                        "Unable to load orders. Check the internet connection."
+                    );
+                }
+            }
+        );
+}
+
+
+/* =========================================================
+   LIVE PRICE CALCULATOR
+========================================================= */
+
+function updateEstimatedTotal() {
+    const quantity =
+        Number(quantityInput.value) || 0;
+
+    const unitPrice =
+        Number(unitPriceInput.value) || 0;
+
+    const totalPrice =
+        quantity * unitPrice;
+
+    estimatedTotal.textContent =
+        `₱${formatMoney(totalPrice)}`;
+
+    calculationText.textContent =
+        `${quantity} × ₱${formatMoney(unitPrice)}`;
+}
+
+
+quantityInput.addEventListener(
+    "input",
+    updateEstimatedTotal
+);
+
+
+unitPriceInput.addEventListener(
+    "input",
+    updateEstimatedTotal
+);
+
+
+updateEstimatedTotal();
+
+
+/* =========================================================
+   ADD OR UPDATE ORDER
+========================================================= */
+
+form.addEventListener(
+    "submit",
+
+    async function (event) {
+        event.preventDefault();
+
+        const currentUser =
+            auth.currentUser;
+
+        if (
+            !currentUser ||
+            !isAuthorizedEmail(
+                currentUser.email
+            )
+        ) {
+            alert(
+                "Please sign in with an authorized DATPrints account."
+            );
+
+            return;
+        }
+
+        const quantity =
+            Number(getValue("qty")) || 0;
+
+        const unitPrice =
+            Number(getValue("price")) || 0;
+
+        /*
+            Correct calculation:
+
+            Total price =
+            quantity × unit price
+        */
+
+        const totalPrice =
+            quantity * unitPrice;
+
+        if (quantity < 1) {
+            alert(
+                "Quantity must be at least 1."
+            );
+
+            return;
+        }
+
+        if (unitPrice < 0) {
+            alert(
+                "Unit price cannot be negative."
+            );
+
+            return;
+        }
+
+        const orderData = {
+            customer:
+                getValue("customer").trim(),
+
+            contact:
+                getValue("contact").trim(),
+
+            item:
+                getValue("item").trim(),
+
+            qty:
+                quantity,
+
+            color:
+                getValue("color").trim(),
+
+            dueDate:
+                getValue("dueDate"),
+
+            unitPrice:
+                unitPrice,
+
+            totalPrice:
+                totalPrice,
+
+            /*
+                Keep price equal to totalPrice for
+                compatibility with older dashboard records.
+            */
+
+            price:
+                totalPrice,
+
+            status:
+                getValue("status"),
+
+            notes:
+                getValue("notes").trim(),
+
+            updatedAt:
+                serverTimestamp(),
+
+            updatedBy:
+                normalizeEmail(
+                    currentUser.email
+                )
+        };
+
+        submitButton.disabled = true;
+
+        submitButton.textContent =
+            editingFirestoreId
+                ? "Updating..."
+                : "Adding...";
+
+        try {
+            if (editingFirestoreId) {
+                await updateDoc(
+                    doc(
+                        db,
+                        "orders",
+                        editingFirestoreId
+                    ),
+                    orderData
+                );
+            } else {
+                await addDoc(
+                    ordersRef,
+                    {
+                        ...orderData,
+
+                        id:
+                            Date.now(),
+
+                        createdAt:
+                            serverTimestamp(),
+
+                        createdBy:
+                            normalizeEmail(
+                                currentUser.email
+                            )
+                    }
+                );
+            }
+
+            resetOrderForm();
+        } catch (error) {
+            console.error(
+                "Order save error:",
+                error
+            );
+
+            alert(
+                "The order could not be saved. Check the internet connection and Firestore permissions."
+            );
+        } finally {
+            submitButton.disabled = false;
+
+            submitButton.textContent =
+                editingFirestoreId
+                    ? "Update Order"
+                    : "Add Order";
+        }
+    }
+);
+
+
+/* =========================================================
+   RESET FORM
+========================================================= */
+
+function resetOrderForm() {
+    editingFirestoreId = null;
+
+    form.reset();
+
+    quantityInput.value = 1;
+
+    document.getElementById(
+        "status"
+    ).value = "Pending";
+
+    submitButton.textContent =
+        "Add Order";
+
+    cancelEditButton.classList.add(
+        "hidden"
+    );
+
+    updateEstimatedTotal();
+}
+
+
+cancelEditButton.addEventListener(
+    "click",
+    resetOrderForm
+);
+
+
+/* =========================================================
+   ORDER HELPERS
+========================================================= */
+
 function getCreatedTime(order) {
     if (
         order.createdAt &&
-        typeof order.createdAt.toMillis === "function"
+        typeof order.createdAt.toMillis ===
+        "function"
     ) {
         return order.createdAt.toMillis();
     }
 
-    /*
-        Older orders may not have createdAt.
+    const oldTimestamp =
+        Number(order.id);
 
-        Your previous order IDs were generated by Date.now(),
-        so the numeric ID can be used as a fallback.
-    */
-
-    const oldOrderTimestamp = Number(order.id);
-
-    if (Number.isFinite(oldOrderTimestamp)) {
-        return oldOrderTimestamp;
-    }
-
-    return 0;
+    return Number.isFinite(
+        oldTimestamp
+    )
+        ? oldTimestamp
+        : 0;
 }
 
 
@@ -152,65 +738,55 @@ function getDueDateValue(order) {
         return Number.MAX_SAFE_INTEGER;
     }
 
-    const dueDateValue =
-        new Date(`${order.dueDate}T00:00:00`).getTime();
+    const value =
+        new Date(
+            `${order.dueDate}T00:00:00`
+        ).getTime();
 
-    if (Number.isNaN(dueDateValue)) {
-        return Number.MAX_SAFE_INTEGER;
-    }
-
-    return dueDateValue;
+    return Number.isNaN(value)
+        ? Number.MAX_SAFE_INTEGER
+        : value;
 }
 
 
 function getStatusPriority(status) {
-    const statusPriorities = {
+    const priorities = {
         Pending: 1,
         Printing: 2,
         Ready: 3,
         Delivered: 4
     };
 
-    return statusPriorities[status] || 5;
+    return priorities[status] || 5;
 }
 
 
 function getStatusClass(status) {
     const normalizedStatus =
         String(status || "")
-            .trim()
             .toLowerCase();
 
-    if (normalizedStatus === "pending") {
-        return "status-pending";
-    }
+    const classes = {
+        pending: "status-pending",
+        printing: "status-printing",
+        ready: "status-ready",
+        delivered: "status-delivered"
+    };
 
-    if (normalizedStatus === "printing") {
-        return "status-printing";
-    }
-
-    if (normalizedStatus === "ready") {
-        return "status-ready";
-    }
-
-    if (normalizedStatus === "delivered") {
-        return "status-delivered";
-    }
-
-    return "";
+    return classes[normalizedStatus] || "";
 }
 
 
 function getDueDateClass(order) {
-    if (!order.dueDate) {
+    if (
+        !order.dueDate ||
+        order.status === "Delivered"
+    ) {
         return "";
     }
 
-    if (order.status === "Delivered") {
-        return "";
-    }
-
-    const today = getLocalDateString();
+    const today =
+        getLocalDateString();
 
     if (order.dueDate < today) {
         return "overdue-date";
@@ -225,250 +801,48 @@ function getDueDateClass(order) {
 
 
 function getOrderUnitPrice(order) {
-    /*
-        New orders have unitPrice.
-
-        For old Firestore orders without unitPrice,
-        the previous price is used as the fallback.
-    */
-
     if (
         order.unitPrice !== undefined &&
         order.unitPrice !== null
     ) {
-        return Number(order.unitPrice) || 0;
+        return Number(
+            order.unitPrice
+        ) || 0;
     }
+
+    /*
+        Older orders may only have price.
+        Treat the old price as the unit price
+        until the order is edited and saved.
+    */
 
     return Number(order.price) || 0;
 }
 
 
 function getOrderTotalPrice(order) {
-    /*
-        New orders have totalPrice and price.
-
-        The fallback keeps old orders compatible.
-    */
-
     if (
         order.totalPrice !== undefined &&
         order.totalPrice !== null
     ) {
-        return Number(order.totalPrice) || 0;
+        return Number(
+            order.totalPrice
+        ) || 0;
     }
 
-    return Number(order.price) || 0;
-}
+    /*
+        Correct older records dynamically:
 
+        total = old price × quantity
+    */
 
-/* =========================================================
-   FIRESTORE REAL-TIME LISTENER
-========================================================= */
+    const quantity =
+        Number(order.qty) || 1;
 
-onSnapshot(
-    ordersRef,
+    const oldUnitPrice =
+        Number(order.price) || 0;
 
-    function (snapshot) {
-        orders = [];
-
-        snapshot.forEach(function (documentSnapshot) {
-            const data = documentSnapshot.data();
-
-            /*
-                Ignore the temporary test document that only
-                contains test: "hello".
-            */
-
-            if (!data.customer && !data.item) {
-                return;
-            }
-
-            orders.push({
-                firestoreId: documentSnapshot.id,
-                ...data
-            });
-        });
-
-        applyFiltersAndSort();
-        updateDashboard();
-    },
-
-    function (error) {
-        console.error(
-            "Firestore listener error:",
-            error
-        );
-
-        alert(
-            "Unable to load orders. Check the internet connection and Firestore rules."
-        );
-    }
-);
-
-
-/* =========================================================
-   ADD OR UPDATE ORDER
-========================================================= */
-
-if (form) {
-    form.addEventListener(
-        "submit",
-
-        async function (event) {
-            event.preventDefault();
-
-            const quantity =
-                Number(getValue("qty")) || 0;
-
-            const unitPrice =
-                Number(getValue("price")) || 0;
-
-            const totalPrice =
-                quantity * unitPrice;
-
-            const orderData = {
-                customer:
-                    getValue("customer").trim(),
-
-                contact:
-                    getValue("contact").trim(),
-
-                item:
-                    getValue("item").trim(),
-
-                qty: quantity,
-
-                color:
-                    getValue("color").trim(),
-
-                dueDate:
-                    getValue("dueDate"),
-
-                unitPrice: unitPrice,
-
-                /*
-                    Keep price as the total price so your
-                    existing dashboard total still works.
-                */
-
-                price: totalPrice,
-
-                totalPrice: totalPrice,
-
-                status:
-                    getValue("status"),
-
-                notes:
-                    getValue("notes").trim(),
-
-                updatedAt:
-                    serverTimestamp()
-            };
-
-            if (!orderData.customer) {
-                alert("Please enter the customer name.");
-                return;
-            }
-
-            if (!orderData.item) {
-                alert("Please enter the item name.");
-                return;
-            }
-
-            if (quantity <= 0) {
-                alert("Quantity must be at least 1.");
-                return;
-            }
-
-            if (unitPrice < 0) {
-                alert("Price cannot be negative.");
-                return;
-            }
-
-            if (submitButton) {
-                submitButton.disabled = true;
-
-                submitButton.innerText =
-                    editingFirestoreId
-                        ? "Updating..."
-                        : "Adding...";
-            }
-
-            try {
-                if (editingFirestoreId) {
-                    /*
-                        Update the existing Firestore document.
-
-                        createdAt is not changed, so the original
-                        order creation date is preserved.
-                    */
-
-                    await updateDoc(
-                        doc(
-                            db,
-                            "orders",
-                            editingFirestoreId
-                        ),
-                        orderData
-                    );
-                } else {
-                    /*
-                        Add a brand-new order with a server
-                        creation timestamp.
-                    */
-
-                    await addDoc(
-                        ordersRef,
-                        {
-                            ...orderData,
-
-                            id: Date.now(),
-
-                            createdAt:
-                                serverTimestamp()
-                        }
-                    );
-                }
-
-                resetOrderForm();
-            } catch (error) {
-                console.error(
-                    "Error saving order:",
-                    error
-                );
-
-                alert(
-                    "The order could not be saved. Please check the internet connection and Firestore permissions."
-                );
-            } finally {
-                if (submitButton) {
-                    submitButton.disabled = false;
-
-                    submitButton.innerText =
-                        editingFirestoreId
-                            ? "Update Order"
-                            : "Add Order";
-                }
-            }
-        }
-    );
-}
-
-
-/* =========================================================
-   RESET ORDER FORM
-========================================================= */
-
-function resetOrderForm() {
-    editingFirestoreId = null;
-
-    if (form) {
-        form.reset();
-    }
-
-    if (submitButton) {
-        submitButton.innerText = "Add Order";
-    }
+    return quantity * oldUnitPrice;
 }
 
 
@@ -478,24 +852,18 @@ function resetOrderForm() {
 
 function applyFiltersAndSort() {
     const searchTerm =
-        search
-            ? search.value.trim().toLowerCase()
-            : "";
+        search.value
+            .trim()
+            .toLowerCase();
 
     const selectedStatus =
-        statusFilter
-            ? statusFilter.value
-            : "All";
+        statusFilter.value;
 
     const selectedDueDate =
-        dueDateFilter
-            ? dueDateFilter.value
-            : "All";
+        dueDateFilter.value;
 
     const selectedSort =
-        sortFilter
-            ? sortFilter.value
-            : "Priority";
+        sortFilter.value;
 
     const today =
         getLocalDateString();
@@ -508,261 +876,259 @@ function applyFiltersAndSort() {
     );
 
     const nextSevenDays =
-        getLocalDateString(sevenDaysFromNow);
+        getLocalDateString(
+            sevenDaysFromNow
+        );
 
     let filteredOrders =
-        orders.filter(function (order) {
-            const customer =
-                String(order.customer || "")
+        orders.filter(
+            function (order) {
+                const searchableText = [
+                    order.id,
+                    order.customer,
+                    order.contact,
+                    order.item,
+                    order.color,
+                    order.notes
+                ]
+                    .join(" ")
                     .toLowerCase();
 
-            const item =
-                String(order.item || "")
-                    .toLowerCase();
+                const matchesSearch =
+                    searchableText.includes(
+                        searchTerm
+                    );
 
-            const contact =
-                String(order.contact || "")
-                    .toLowerCase();
+                const matchesStatus =
+                    selectedStatus === "All" ||
+                    order.status ===
+                        selectedStatus;
 
-            const orderId =
-                String(order.id || "")
-                    .toLowerCase();
+                let matchesDueDate = true;
 
-            const color =
-                String(order.color || "")
-                    .toLowerCase();
+                if (
+                    selectedDueDate ===
+                    "Overdue"
+                ) {
+                    matchesDueDate =
+                        Boolean(
+                            order.dueDate
+                        ) &&
+                        order.dueDate < today &&
+                        order.status !==
+                            "Delivered";
+                }
 
-            const notes =
-                String(order.notes || "")
-                    .toLowerCase();
+                if (
+                    selectedDueDate ===
+                    "Today"
+                ) {
+                    matchesDueDate =
+                        order.dueDate === today;
+                }
 
-            const matchesSearch =
-                customer.includes(searchTerm) ||
-                item.includes(searchTerm) ||
-                contact.includes(searchTerm) ||
-                orderId.includes(searchTerm) ||
-                color.includes(searchTerm) ||
-                notes.includes(searchTerm);
+                if (
+                    selectedDueDate ===
+                    "Next7Days"
+                ) {
+                    matchesDueDate =
+                        Boolean(
+                            order.dueDate
+                        ) &&
+                        order.dueDate >= today &&
+                        order.dueDate <=
+                            nextSevenDays;
+                }
 
-            const matchesStatus =
-                selectedStatus === "All" ||
-                order.status === selectedStatus;
+                if (
+                    selectedDueDate ===
+                    "Future"
+                ) {
+                    matchesDueDate =
+                        Boolean(
+                            order.dueDate
+                        ) &&
+                        order.dueDate >
+                            nextSevenDays;
+                }
 
-            let matchesDueDate = true;
-
-            if (selectedDueDate === "Overdue") {
-                matchesDueDate =
-                    Boolean(order.dueDate) &&
-                    order.dueDate < today &&
-                    order.status !== "Delivered";
+                return (
+                    matchesSearch &&
+                    matchesStatus &&
+                    matchesDueDate
+                );
             }
-
-            if (selectedDueDate === "Today") {
-                matchesDueDate =
-                    order.dueDate === today;
-            }
-
-            if (selectedDueDate === "Next7Days") {
-                matchesDueDate =
-                    Boolean(order.dueDate) &&
-                    order.dueDate >= today &&
-                    order.dueDate <= nextSevenDays;
-            }
-
-            if (selectedDueDate === "Future") {
-                matchesDueDate =
-                    Boolean(order.dueDate) &&
-                    order.dueDate > nextSevenDays;
-            }
-
-            return (
-                matchesSearch &&
-                matchesStatus &&
-                matchesDueDate
-            );
-        });
-
-    filteredOrders.sort(function (orderA, orderB) {
-        /*
-            When all statuses are displayed, Delivered
-            orders remain at the bottom regardless of
-            the selected sorting option.
-        */
-
-        if (selectedStatus === "All") {
-            const orderAIsDelivered =
-                orderA.status === "Delivered";
-
-            const orderBIsDelivered =
-                orderB.status === "Delivered";
-
-            if (
-                orderAIsDelivered &&
-                !orderBIsDelivered
-            ) {
-                return 1;
-            }
-
-            if (
-                !orderAIsDelivered &&
-                orderBIsDelivered
-            ) {
-                return -1;
-            }
-        }
-
-        if (selectedSort === "Newest") {
-            return (
-                getCreatedTime(orderB) -
-                getCreatedTime(orderA)
-            );
-        }
-
-        if (selectedSort === "DueSoon") {
-            const dueDateDifference =
-                getDueDateValue(orderA) -
-                getDueDateValue(orderB);
-
-            if (dueDateDifference !== 0) {
-                return dueDateDifference;
-            }
-
-            return (
-                getCreatedTime(orderB) -
-                getCreatedTime(orderA)
-            );
-        }
-
-        if (selectedSort === "DueLate") {
-            const dueDateDifference =
-                getDueDateValue(orderB) -
-                getDueDateValue(orderA);
-
-            if (dueDateDifference !== 0) {
-                return dueDateDifference;
-            }
-
-            return (
-                getCreatedTime(orderB) -
-                getCreatedTime(orderA)
-            );
-        }
-
-        /*
-            Default priority:
-
-            1. Pending
-            2. Printing
-            3. Ready
-            4. Delivered
-        */
-
-        const statusDifference =
-            getStatusPriority(orderA.status) -
-            getStatusPriority(orderB.status);
-
-        if (statusDifference !== 0) {
-            return statusDifference;
-        }
-
-        /*
-            Orders with the same status are arranged
-            newest first.
-        */
-
-        return (
-            getCreatedTime(orderB) -
-            getCreatedTime(orderA)
         );
-    });
 
-    renderOrders(filteredOrders);
+
+    filteredOrders.sort(
+        function (orderA, orderB) {
+            /*
+                Delivered remains at the bottom
+                while viewing All Statuses.
+            */
+
+            if (
+                selectedStatus === "All"
+            ) {
+                const aDelivered =
+                    orderA.status ===
+                    "Delivered";
+
+                const bDelivered =
+                    orderB.status ===
+                    "Delivered";
+
+                if (
+                    aDelivered &&
+                    !bDelivered
+                ) {
+                    return 1;
+                }
+
+                if (
+                    !aDelivered &&
+                    bDelivered
+                ) {
+                    return -1;
+                }
+            }
+
+            if (
+                selectedSort === "Newest"
+            ) {
+                return (
+                    getCreatedTime(orderB) -
+                    getCreatedTime(orderA)
+                );
+            }
+
+            if (
+                selectedSort ===
+                "DueSoon"
+            ) {
+                const difference =
+                    getDueDateValue(orderA) -
+                    getDueDateValue(orderB);
+
+                if (difference !== 0) {
+                    return difference;
+                }
+
+                return (
+                    getCreatedTime(orderB) -
+                    getCreatedTime(orderA)
+                );
+            }
+
+            if (
+                selectedSort ===
+                "DueLate"
+            ) {
+                const difference =
+                    getDueDateValue(orderB) -
+                    getDueDateValue(orderA);
+
+                if (difference !== 0) {
+                    return difference;
+                }
+
+                return (
+                    getCreatedTime(orderB) -
+                    getCreatedTime(orderA)
+                );
+            }
+
+            const statusDifference =
+                getStatusPriority(
+                    orderA.status
+                ) -
+                getStatusPriority(
+                    orderB.status
+                );
+
+            if (
+                statusDifference !== 0
+            ) {
+                return statusDifference;
+            }
+
+            /*
+                Same status:
+                newest order appears first.
+            */
+
+            return (
+                getCreatedTime(orderB) -
+                getCreatedTime(orderA)
+            );
+        }
+    );
+
+    renderOrders(
+        filteredOrders
+    );
 }
 
 
 /* =========================================================
-   FILTER EVENT LISTENERS
+   FILTER EVENTS
 ========================================================= */
 
-if (search) {
-    search.addEventListener(
-        "input",
-        applyFiltersAndSort
-    );
-}
+search.addEventListener(
+    "input",
+    applyFiltersAndSort
+);
 
+statusFilter.addEventListener(
+    "change",
+    applyFiltersAndSort
+);
 
-if (statusFilter) {
-    statusFilter.addEventListener(
-        "change",
-        applyFiltersAndSort
-    );
-}
+dueDateFilter.addEventListener(
+    "change",
+    applyFiltersAndSort
+);
 
+sortFilter.addEventListener(
+    "change",
+    applyFiltersAndSort
+);
 
-if (dueDateFilter) {
-    dueDateFilter.addEventListener(
-        "change",
-        applyFiltersAndSort
-    );
-}
+clearFiltersButton.addEventListener(
+    "click",
 
+    function () {
+        search.value = "";
 
-if (sortFilter) {
-    sortFilter.addEventListener(
-        "change",
-        applyFiltersAndSort
-    );
-}
+        statusFilter.value = "All";
 
+        dueDateFilter.value = "All";
 
-if (clearFiltersButton) {
-    clearFiltersButton.addEventListener(
-        "click",
+        sortFilter.value = "Priority";
 
-        function () {
-            if (search) {
-                search.value = "";
-            }
-
-            if (statusFilter) {
-                statusFilter.value = "All";
-            }
-
-            if (dueDateFilter) {
-                dueDateFilter.value = "All";
-            }
-
-            if (sortFilter) {
-                sortFilter.value = "Priority";
-            }
-
-            applyFiltersAndSort();
-        }
-    );
-}
+        applyFiltersAndSort();
+    }
+);
 
 
 /* =========================================================
    RENDER ORDERS
 ========================================================= */
 
-function renderOrders(filteredOrders = orders) {
-    if (!table) {
-        return;
-    }
-
+function renderOrders(
+    filteredOrders = orders
+) {
     table.innerHTML = "";
 
-    if (filteredOrders.length === 0) {
+    if (
+        filteredOrders.length === 0
+    ) {
         table.innerHTML = `
             <tr>
-                <td colspan="13"
-                    style="
-                        text-align: center;
-                        padding: 30px;
-                        color: #888;
-                    "
+                <td
+                    colspan="12"
+                    class="empty-table"
                 >
                     No orders found.
                 </td>
@@ -772,105 +1138,101 @@ function renderOrders(filteredOrders = orders) {
         return;
     }
 
-    filteredOrders.forEach(function (order) {
-        const statusClass =
-            getStatusClass(order.status);
+    filteredOrders.forEach(
+        function (order) {
+            const unitPrice =
+                getOrderUnitPrice(order);
 
-        const dueDateClass =
-            getDueDateClass(order);
+            const totalPrice =
+                getOrderTotalPrice(order);
 
-        const unitPrice =
-            getOrderUnitPrice(order);
+            table.innerHTML += `
+                <tr>
 
-        const totalPrice =
-            getOrderTotalPrice(order);
+                    <td>
+                        ${escapeHTML(order.id)}
+                    </td>
 
-        const orderId =
-            escapeHTML(order.id || "");
+                    <td>
+                        ${escapeHTML(order.customer)}
+                    </td>
 
-        const customer =
-            escapeHTML(order.customer);
+                    <td>
+                        ${escapeHTML(order.contact)}
+                    </td>
 
-        const contact =
-            escapeHTML(order.contact);
+                    <td>
+                        ${escapeHTML(order.item)}
+                    </td>
 
-        const item =
-            escapeHTML(order.item);
+                    <td>
+                        ${escapeHTML(order.qty)}
+                    </td>
 
-        const quantity =
-            escapeHTML(order.qty);
+                    <td>
+                        ${escapeHTML(order.color)}
+                    </td>
 
-        const color =
-            escapeHTML(order.color);
+                    <td class="${getDueDateClass(order)}">
+                        ${escapeHTML(
+                            order.dueDate ||
+                            "No due date"
+                        )}
+                    </td>
 
-        const dueDate =
-            escapeHTML(order.dueDate || "No due date");
+                    <td>
+                        ₱${formatMoney(unitPrice)}
+                    </td>
 
-        const status =
-            escapeHTML(order.status || "Pending");
+                    <td>
+                        ₱${formatMoney(totalPrice)}
+                    </td>
 
-        const notes =
-            escapeHTML(order.notes || "");
+                    <td>
+                        <span
+                            class="status-badge ${getStatusClass(order.status)}"
+                        >
+                            ${escapeHTML(
+                                order.status ||
+                                "Pending"
+                            )}
+                        </span>
+                    </td>
 
-        const firestoreId =
-            escapeHTML(order.firestoreId);
+                    <td>
+                        ${escapeHTML(order.notes)}
+                    </td>
 
-        table.innerHTML += `
-            <tr>
-                <td>${orderId}</td>
+                    <td class="action-cell">
 
-                <td>${customer}</td>
+                        <button
+                            type="button"
+                            class="actionBtn edit"
+                            data-action="edit"
+                            data-id="${escapeHTML(
+                                order.firestoreId
+                            )}"
+                        >
+                            Edit
+                        </button>
 
-                <td>${contact}</td>
+                        <button
+                            type="button"
+                            class="actionBtn delete"
+                            data-action="delete"
+                            data-id="${escapeHTML(
+                                order.firestoreId
+                            )}"
+                        >
+                            Delete
+                        </button>
 
-                <td>${item}</td>
+                    </td>
 
-                <td>${quantity}</td>
-
-                <td>${color}</td>
-
-                <td class="${dueDateClass}">
-                    ${dueDate}
-                </td>
-
-                <td>
-                    ₱${formatMoney(unitPrice)}
-                </td>
-
-                <td>
-                    ₱${formatMoney(totalPrice)}
-                </td>
-
-                <td>
-                    <span class="status-badge ${statusClass}">
-                        ${status}
-                    </span>
-                </td>
-
-                <td>${notes}</td>
-
-                <td>
-                    <button
-                        type="button"
-                        class="actionBtn edit"
-                        data-action="edit"
-                        data-id="${firestoreId}"
-                    >
-                        Edit
-                    </button>
-
-                    <button
-                        type="button"
-                        class="actionBtn delete"
-                        data-action="delete"
-                        data-id="${firestoreId}"
-                    >
-                        Delete
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
+                </tr>
+            `;
+        }
+    );
 }
 
 
@@ -878,36 +1240,38 @@ function renderOrders(filteredOrders = orders) {
    TABLE BUTTON EVENTS
 ========================================================= */
 
-if (table) {
-    table.addEventListener(
-        "click",
+table.addEventListener(
+    "click",
 
-        function (event) {
-            const button =
-                event.target.closest(
-                    "button[data-action]"
-                );
+    function (event) {
+        const button =
+            event.target.closest(
+                "button[data-action]"
+            );
 
-            if (!button) {
-                return;
-            }
-
-            const action =
-                button.dataset.action;
-
-            const firestoreId =
-                button.dataset.id;
-
-            if (action === "edit") {
-                editOrder(firestoreId);
-            }
-
-            if (action === "delete") {
-                deleteOrder(firestoreId);
-            }
+        if (!button) {
+            return;
         }
-    );
-}
+
+        if (
+            button.dataset.action ===
+            "edit"
+        ) {
+            editOrder(
+                button.dataset.id
+            );
+        }
+
+        if (
+            button.dataset.action ===
+            "delete"
+        ) {
+            deleteOrder(
+                button.dataset.id
+            );
+        }
+    }
+);
 
 
 /* =========================================================
@@ -916,12 +1280,14 @@ if (table) {
 
 function editOrder(firestoreId) {
     const order =
-        orders.find(function (currentOrder) {
-            return (
-                currentOrder.firestoreId ===
-                firestoreId
-            );
-        });
+        orders.find(
+            function (currentOrder) {
+                return (
+                    currentOrder.firestoreId ===
+                    firestoreId
+                );
+            }
+        );
 
     if (!order) {
         alert("Order not found.");
@@ -929,7 +1295,7 @@ function editOrder(firestoreId) {
     }
 
     editingFirestoreId =
-        order.firestoreId;
+        firestoreId;
 
     setValue(
         "customer",
@@ -961,11 +1327,6 @@ function editOrder(firestoreId) {
         order.dueDate
     );
 
-    /*
-        The price input should show unit price,
-        not the total order price.
-    */
-
     setValue(
         "price",
         getOrderUnitPrice(order)
@@ -981,17 +1342,19 @@ function editOrder(firestoreId) {
         order.notes
     );
 
-    if (submitButton) {
-        submitButton.innerText =
-            "Update Order";
-    }
+    submitButton.textContent =
+        "Update Order";
 
-    if (form) {
-        form.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-        });
-    }
+    cancelEditButton.classList.remove(
+        "hidden"
+    );
+
+    updateEstimatedTotal();
+
+    form.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
 }
 
 
@@ -999,26 +1362,30 @@ function editOrder(firestoreId) {
    DELETE ORDER
 ========================================================= */
 
-async function deleteOrder(firestoreId) {
+async function deleteOrder(
+    firestoreId
+) {
     const order =
-        orders.find(function (currentOrder) {
-            return (
-                currentOrder.firestoreId ===
-                firestoreId
-            );
-        });
+        orders.find(
+            function (currentOrder) {
+                return (
+                    currentOrder.firestoreId ===
+                    firestoreId
+                );
+            }
+        );
 
     if (!order) {
         alert("Order not found.");
         return;
     }
 
-    const customerName =
-        order.customer || "this customer";
-
     const confirmed =
         confirm(
-            `Delete the order for ${customerName}?`
+            `Delete the order for ${
+                order.customer ||
+                "this customer"
+            }?`
         );
 
     if (!confirmed) {
@@ -1035,83 +1402,85 @@ async function deleteOrder(firestoreId) {
         );
 
         if (
-            editingFirestoreId === firestoreId
+            editingFirestoreId ===
+            firestoreId
         ) {
             resetOrderForm();
         }
     } catch (error) {
         console.error(
-            "Error deleting order:",
+            "Delete order error:",
             error
         );
 
         alert(
-            "The order could not be deleted. Please check the internet connection and Firestore permissions."
+            "The order could not be deleted."
         );
     }
 }
 
 
 /* =========================================================
-   DASHBOARD TOTALS
+   DASHBOARD
 ========================================================= */
 
 function updateDashboard() {
     const totalOrdersElement =
-        document.getElementById("totalOrders");
+        document.getElementById(
+            "totalOrders"
+        );
 
-    const pendingOrdersElement =
-        document.getElementById("pendingOrders");
+    const activeOrdersElement =
+        document.getElementById(
+            "pendingOrders"
+        );
 
     const completedOrdersElement =
-        document.getElementById("completedOrders");
+        document.getElementById(
+            "completedOrders"
+        );
 
     const totalSalesElement =
-        document.getElementById("totalSales");
+        document.getElementById(
+            "totalSales"
+        );
 
-    if (totalOrdersElement) {
-        totalOrdersElement.innerText =
-            orders.length;
-    }
+    totalOrdersElement.textContent =
+        orders.length;
 
-    if (pendingOrdersElement) {
-        /*
-            Pending dashboard card counts all orders
-            that are not yet Delivered.
-        */
-
-        pendingOrdersElement.innerText =
-            orders.filter(function (order) {
+    activeOrdersElement.textContent =
+        orders.filter(
+            function (order) {
                 return (
-                    order.status !== "Delivered"
+                    order.status !==
+                    "Delivered"
                 );
-            }).length;
-    }
+            }
+        ).length;
 
-    if (completedOrdersElement) {
-        completedOrdersElement.innerText =
-            orders.filter(function (order) {
+    completedOrdersElement.textContent =
+        orders.filter(
+            function (order) {
                 return (
-                    order.status === "Delivered"
+                    order.status ===
+                    "Delivered"
                 );
-            }).length;
-    }
+            }
+        ).length;
 
-    if (totalSalesElement) {
-        const totalSales =
-            orders.reduce(
-                function (sum, order) {
-                    return (
-                        sum +
-                        getOrderTotalPrice(order)
-                    );
-                },
-                0
-            );
+    const totalSales =
+        orders.reduce(
+            function (sum, order) {
+                return (
+                    sum +
+                    getOrderTotalPrice(order)
+                );
+            },
+            0
+        );
 
-        totalSalesElement.innerText =
-            formatMoney(totalSales);
-    }
+    totalSalesElement.textContent =
+        formatMoney(totalSales);
 }
 
 
@@ -1119,56 +1488,51 @@ function updateDashboard() {
    LIGHT AND DARK MODE
 ========================================================= */
 
-if (themeToggle) {
-    const savedTheme =
-        localStorage.getItem("theme");
+const savedTheme =
+    localStorage.getItem("theme");
 
-    if (savedTheme === "dark") {
-        document.body.classList.add(
+if (savedTheme === "dark") {
+    document.body.classList.add(
+        "dark-mode"
+    );
+
+    themeToggle.textContent =
+        "☀️ Light Mode";
+} else {
+    themeToggle.textContent =
+        "🌙 Dark Mode";
+}
+
+
+themeToggle.addEventListener(
+    "click",
+
+    function () {
+        document.body.classList.toggle(
             "dark-mode"
         );
 
-        themeToggle.innerHTML =
-            "☀️ Light Mode";
-    } else {
-        document.body.classList.remove(
-            "dark-mode"
-        );
-
-        themeToggle.innerHTML =
-            "🌙 Dark Mode";
-    }
-
-    themeToggle.addEventListener(
-        "click",
-
-        function () {
-            document.body.classList.toggle(
+        const darkModeIsActive =
+            document.body.classList.contains(
                 "dark-mode"
             );
 
-            const darkModeIsActive =
-                document.body.classList.contains(
-                    "dark-mode"
-                );
+        if (darkModeIsActive) {
+            localStorage.setItem(
+                "theme",
+                "dark"
+            );
 
-            if (darkModeIsActive) {
-                localStorage.setItem(
-                    "theme",
-                    "dark"
-                );
+            themeToggle.textContent =
+                "☀️ Light Mode";
+        } else {
+            localStorage.setItem(
+                "theme",
+                "light"
+            );
 
-                themeToggle.innerHTML =
-                    "☀️ Light Mode";
-            } else {
-                localStorage.setItem(
-                    "theme",
-                    "light"
-                );
-
-                themeToggle.innerHTML =
-                    "🌙 Dark Mode";
-            }
+            themeToggle.textContent =
+                "🌙 Dark Mode";
         }
-    );
-}
+    }
+);
