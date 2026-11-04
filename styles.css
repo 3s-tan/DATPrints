@@ -469,3 +469,204 @@ body.dark-mode .filter-group select {
         width: 100%;
     }
 }
+
+/* =====================================
+   AUTHENTICATION
+===================================== */
+
+.hidden {
+    display: none !important;
+}
+
+.login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(255, 107, 0, 0.2),
+            transparent 35%
+        ),
+        var(--bg);
+}
+
+.login-card {
+    width: min(100%, 430px);
+    padding: 40px 30px;
+    text-align: center;
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+}
+
+.login-logo {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 18px;
+    display: grid;
+    place-items: center;
+    border-radius: 20px;
+    background: linear-gradient(
+        135deg,
+        #ff6b00,
+        #ff964d
+    );
+    color: white;
+    font-size: 25px;
+    font-weight: 800;
+}
+
+.login-card h1 {
+    margin-bottom: 6px;
+}
+
+.login-card > p {
+    color: #777;
+}
+
+.google-sign-in-button {
+    width: 100%;
+    margin-top: 25px;
+    padding: 14px 18px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    background: #4285f4;
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.google-sign-in-button:hover {
+    background: #3367d6;
+}
+
+.google-sign-in-button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.login-note {
+    margin-top: 18px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.login-message {
+    min-height: 22px;
+    margin-top: 15px;
+    color: #dc2626 !important;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.sign-out-button {
+    border: 1px solid #dc2626;
+    background: transparent;
+    color: #dc2626;
+    padding: 10px 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.sign-out-button:hover {
+    background: #dc2626;
+    color: white;
+}
+
+.signed-in-user {
+    margin-top: 13px;
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--text);
+}
+
+
+/* =====================================
+   PRICE CALCULATOR
+===================================== */
+
+.estimated-total-box {
+    padding: 13px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--table-hover);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.estimated-total-box span {
+    font-size: 13px;
+    color: #777;
+}
+
+.estimated-total-box strong {
+    margin-top: 3px;
+    color: #ff6b00;
+    font-size: 23px;
+}
+
+.estimated-total-box small {
+    margin-top: 3px;
+    color: #777;
+}
+
+.cancel-edit-button {
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    background: #6b7280;
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.empty-table {
+    text-align: center;
+    padding: 32px !important;
+    color: #888;
+}
+
+.action-cell {
+    white-space: nowrap;
+}
+
+body.dark-mode .login-card {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+body.dark-mode .estimated-total-box {
+    background: #262626;
+}
+
+@media (max-width: 600px) {
+    .header-actions {
+        width: 100%;
+    }
+
+    .theme-btn,
+    .sign-out-button {
+        flex: 1;
+    }
+
+    .signed-in-user {
+        word-break: break-all;
+    }
+}
