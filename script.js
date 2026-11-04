@@ -21,13 +21,17 @@ import {
     getAuth,
     GoogleAuthProvider,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    setPersistence,
+    browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
 
 /* =========================================================
-   FIREBASE CONFIGURATION
+   FIREBASE
 ========================================================= */
 
 const firebaseConfig = {
@@ -40,45 +44,40 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-
 const db = getFirestore(app);
-
 const auth = getAuth(app);
 
-const googleProvider =
-    new GoogleAuthProvider();
+const provider = new GoogleAuthProvider();
 
-googleProvider.setCustomParameters({
+provider.setCustomParameters({
     prompt: "select_account"
 });
 
-const ordersRef =
+const ordersReference =
     collection(db, "orders");
 
 
 /* =========================================================
-   AUTHORIZED DATPRINTS ACCOUNTS
+   AUTHORIZED ACCOUNTS
 ========================================================= */
 
-const AUTHORIZED_EMAILS = [
+const authorizedEmails = [
     "ligon.tristanniconavalta@gmail.com",
     "devierosel28@gmail.com"
 ];
 
 
 /* =========================================================
-   VARIABLES
+   STATE
 ========================================================= */
 
 let orders = [];
-
-let editingFirestoreId = null;
-
-let ordersUnsubscribe = null;
+let editingDocumentId = null;
+let stopOrdersListener = null;
 
 
 /* =========================================================
-   HTML ELEMENTS
+   ELEMENTS
 ========================================================= */
 
 const loginScreen =
@@ -87,7 +86,7 @@ const loginScreen =
 const appContainer =
     document.getElementById("appContainer");
 
-const googleSignInButton =
+const signInButton =
     document.getElementById("googleSignInButton");
 
 const signOutButton =
@@ -96,16 +95,25 @@ const signOutButton =
 const loginMessage =
     document.getElementById("loginMessage");
 
-const userEmail =
+const userEmailElement =
     document.getElementById("userEmail");
 
-const form =
+const orderForm =
     document.getElementById("orderForm");
 
-const table =
+const formTitle =
+    document.getElementById("formTitle");
+
+const submitButton =
+    document.getElementById("submitButton");
+
+const cancelEditButton =
+    document.getElementById("cancelEditButton");
+
+const orderTable =
     document.getElementById("orderTable");
 
-const search =
+const searchInput =
     document.getElementById("search");
 
 const statusFilter =
@@ -120,19 +128,13 @@ const sortFilter =
 const clearFiltersButton =
     document.getElementById("clearFilters");
 
-const submitButton =
-    document.getElementById("submitButton");
-
-const cancelEditButton =
-    document.getElementById("cancelEditButton");
-
 const quantityInput =
     document.getElementById("qty");
 
 const unitPriceInput =
     document.getElementById("price");
 
-const estimatedTotal =
+const estimatedTotalElement =
     document.getElementById("estimatedTotal");
 
 const calculationText =
@@ -146,7 +148,19 @@ const themeToggle =
    GENERAL HELPERS
 ========================================================= */
 
-function getValue(id) {
+function normalizeEmail(email) {
+    return String(email || "")
+        .trim()
+        .toLowerCase();
+}
+
+function isAuthorized(email) {
+    return authorizedEmails.includes(
+        normalizeEmail(email)
+    );
+}
+
+function getInputValue(id) {
     const element =
         document.getElementById(id);
 
@@ -155,31 +169,14 @@ function getValue(id) {
         : "";
 }
 
-
-function setValue(id, value) {
+function setInputValue(id, value) {
     const element =
         document.getElementById(id);
 
     if (element) {
-        element.value =
-            value ?? "";
+        element.value = value ?? "";
     }
 }
-
-
-function normalizeEmail(email) {
-    return String(email || "")
-        .trim()
-        .toLowerCase();
-}
-
-
-function isAuthorizedEmail(email) {
-    return AUTHORIZED_EMAILS.includes(
-        normalizeEmail(email)
-    );
-}
-
 
 function escapeHTML(value) {
     return String(value ?? "")
@@ -190,38 +187,38 @@ function escapeHTML(value) {
         .replaceAll("'", "&#039;");
 }
 
-
 function formatMoney(value) {
-    const amount =
-        Number(value) || 0;
-
-    return amount.toLocaleString(
-        "en-PH",
-        {
+    return (Number(value) || 0)
+        .toLocaleString("en-PH", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
-        }
-    );
+        });
 }
 
-
-function getLocalDateString(
-    date = new Date()
-) {
-    const year =
-        date.getFullYear();
+function getLocalDateString(date = new Date()) {
+    const year = date.getFullYear();
 
     const month =
-        String(
-            date.getMonth() + 1
-        ).padStart(2, "0");
+        String(date.getMonth() + 1)
+            .padStart(2, "0");
 
     const day =
-        String(
-            date.getDate()
-        ).padStart(2, "0");
+        String(date.getDate())
+            .padStart(2, "0");
 
     return `${year}-${month}-${day}`;
+}
+
+function showLoginMessage(
+    message,
+    type = "error"
+) {
+    loginMessage.textContent = message;
+
+    loginMessage.style.color =
+        type === "success"
+            ? "#16a34a"
+            : "#dc2626";
 }
 
 
@@ -229,40 +226,58 @@ function getLocalDateString(
    AUTHENTICATION
 ========================================================= */
 
-googleSignInButton.addEventListener(
+async function prepareAuthentication() {
+    try {
+        await setPersistence(
+            auth,
+            browserLocalPersistence
+        );
+
+        await getRedirectResult(auth);
+    } catch (error) {
+        console.error(
+            "Authentication initialization error:",
+            error
+        );
+
+        showLoginMessage(
+            `Authentication error: ${
+                error.code || error.message
+            }`
+        );
+    }
+}
+
+prepareAuthentication();
+
+
+signInButton.addEventListener(
     "click",
 
     async function () {
-        googleSignInButton.disabled = true;
+        signInButton.disabled = true;
+        signInButton.textContent =
+            "Opening Google...";
 
-        googleSignInButton.textContent =
-            "Signing in...";
-
-        loginMessage.textContent = "";
+        showLoginMessage("");
 
         try {
             const result =
                 await signInWithPopup(
                     auth,
-                    googleProvider
-                );
-
-            const signedInEmail =
-                normalizeEmail(
-                    result.user.email
+                    provider
                 );
 
             if (
-                !isAuthorizedEmail(
-                    signedInEmail
+                !isAuthorized(
+                    result.user.email
                 )
             ) {
                 await signOut(auth);
 
-                loginMessage.textContent =
-                    "This Google account is not authorized to access DATPrints.";
-
-                return;
+                showLoginMessage(
+                    "This Google account is not authorized for DATPrints."
+                );
             }
         } catch (error) {
             console.error(
@@ -270,35 +285,79 @@ googleSignInButton.addEventListener(
                 error
             );
 
+            const errorCode =
+                error.code || "unknown-error";
+
             if (
-                error.code ===
-                "auth/popup-closed-by-user"
-            ) {
-                loginMessage.textContent =
-                    "Google sign-in was cancelled.";
-            } else if (
-                error.code ===
+                errorCode ===
                 "auth/popup-blocked"
             ) {
-                loginMessage.textContent =
-                    "The browser blocked the Google login window. Allow pop-ups and try again.";
+                showLoginMessage(
+                    "The popup was blocked. Redirecting to Google sign-in..."
+                );
+
+                try {
+                    await signInWithRedirect(
+                        auth,
+                        provider
+                    );
+                } catch (redirectError) {
+                    console.error(
+                        "Redirect sign-in error:",
+                        redirectError
+                    );
+
+                    showLoginMessage(
+                        `Sign-in failed: ${
+                            redirectError.code ||
+                            redirectError.message
+                        }`
+                    );
+                }
             } else if (
-                error.code ===
+                errorCode ===
+                "auth/popup-closed-by-user"
+            ) {
+                showLoginMessage(
+                    "The Google window was closed before sign-in finished."
+                );
+            } else if (
+                errorCode ===
+                "auth/cancelled-popup-request"
+            ) {
+                showLoginMessage(
+                    "A Google sign-in request is already open."
+                );
+            } else if (
+                errorCode ===
                 "auth/unauthorized-domain"
             ) {
-                loginMessage.textContent =
-                    "This website domain is not authorized in Firebase Authentication.";
+                showLoginMessage(
+                    "This GitHub Pages domain is not authorized in Firebase."
+                );
+            } else if (
+                errorCode ===
+                "auth/operation-not-allowed"
+            ) {
+                showLoginMessage(
+                    "Google Sign-In is not enabled in Firebase Authentication."
+                );
+            } else if (
+                errorCode ===
+                "auth/network-request-failed"
+            ) {
+                showLoginMessage(
+                    "Network error. Check the internet connection and try again."
+                );
             } else {
-                console.error("Firebase Auth Error:", error);
-
-                loginMessage.textContent =
-                    `Google sign-in failed: ${error.code}`;
-}
+                showLoginMessage(
+                    `Google sign-in failed: ${errorCode}`
+                );
             }
         } finally {
-            googleSignInButton.disabled = false;
+            signInButton.disabled = false;
 
-            googleSignInButton.textContent =
+            signInButton.textContent =
                 "Sign in with Google";
         }
     }
@@ -329,98 +388,75 @@ onAuthStateChanged(
     auth,
 
     async function (user) {
-        stopOrdersListener();
+        stopRealtimeOrders();
 
         if (!user) {
-            showLoginScreen();
+            displayLoginScreen();
             return;
         }
 
-        const signedInEmail =
-            normalizeEmail(user.email);
-
-        if (
-            !isAuthorizedEmail(
-                signedInEmail
-            )
-        ) {
+        if (!isAuthorized(user.email)) {
             await signOut(auth);
 
-            loginMessage.textContent =
-                "This Google account is not authorized to access DATPrints.";
+            displayLoginScreen();
+
+            showLoginMessage(
+                "This Google account is not authorized for DATPrints."
+            );
 
             return;
         }
 
-        showDashboard(user);
-        startOrdersListener();
+        displayDashboard(user);
+        startRealtimeOrders();
     }
 );
 
 
-function showLoginScreen() {
-    loginScreen.classList.remove(
-        "hidden"
-    );
-
-    appContainer.classList.add(
-        "hidden"
-    );
-
-    userEmail.textContent = "";
+function displayLoginScreen() {
+    loginScreen.classList.remove("hidden");
+    appContainer.classList.add("hidden");
 
     orders = [];
+    editingDocumentId = null;
 
-    editingFirestoreId = null;
+    userEmailElement.textContent = "";
 
     updateDashboard();
-
-    table.innerHTML = `
-        <tr>
-            <td colspan="12" class="empty-table">
-                Sign in to load orders.
-            </td>
-        </tr>
-    `;
 }
 
 
-function showDashboard(user) {
-    loginScreen.classList.add(
-        "hidden"
-    );
+function displayDashboard(user) {
+    loginScreen.classList.add("hidden");
+    appContainer.classList.remove("hidden");
 
-    appContainer.classList.remove(
-        "hidden"
-    );
-
-    userEmail.textContent =
+    userEmailElement.textContent =
         user.email || "";
 }
 
 
-function stopOrdersListener() {
+function stopRealtimeOrders() {
     if (
-        typeof ordersUnsubscribe ===
+        typeof stopOrdersListener ===
         "function"
     ) {
-        ordersUnsubscribe();
+        stopOrdersListener();
     }
 
-    ordersUnsubscribe = null;
+    stopOrdersListener = null;
 }
 
 
 /* =========================================================
-   FIRESTORE LISTENER
+   REAL-TIME FIRESTORE
 ========================================================= */
 
-function startOrdersListener() {
-    stopOrdersListener();
+function startRealtimeOrders() {
+    stopRealtimeOrders();
 
-    ordersUnsubscribe =
+    stopOrdersListener =
         onSnapshot(
-            ordersRef,
+            ordersReference,
 
             function (snapshot) {
                 orders = [];
@@ -431,8 +467,8 @@ function startOrdersListener() {
                             documentSnapshot.data();
 
                         /*
-                            Ignore the temporary Firebase
-                            document containing test: "hello".
+                            Ignore the old temporary
+                            test document.
                         */
 
                         if (
@@ -466,7 +502,7 @@ function startOrdersListener() {
                     "permission-denied"
                 ) {
                     alert(
-                        "Access denied. Verify your Google account and Firestore Security Rules."
+                        "Firestore access was denied. Check the signed-in account and Firestore Rules."
                     );
                 } else {
                     alert(
@@ -479,7 +515,7 @@ function startOrdersListener() {
 
 
 /* =========================================================
-   LIVE PRICE CALCULATOR
+   LIVE TOTAL CALCULATOR
 ========================================================= */
 
 function updateEstimatedTotal() {
@@ -489,28 +525,25 @@ function updateEstimatedTotal() {
     const unitPrice =
         Number(unitPriceInput.value) || 0;
 
-    const totalPrice =
+    const total =
         quantity * unitPrice;
 
-    estimatedTotal.textContent =
-        `₱${formatMoney(totalPrice)}`;
+    estimatedTotalElement.textContent =
+        `₱${formatMoney(total)}`;
 
     calculationText.textContent =
         `${quantity} × ₱${formatMoney(unitPrice)}`;
 }
-
 
 quantityInput.addEventListener(
     "input",
     updateEstimatedTotal
 );
 
-
 unitPriceInput.addEventListener(
     "input",
     updateEstimatedTotal
 );
-
 
 updateEstimatedTotal();
 
@@ -519,7 +552,7 @@ updateEstimatedTotal();
    ADD OR UPDATE ORDER
 ========================================================= */
 
-form.addEventListener(
+orderForm.addEventListener(
     "submit",
 
     async function (event) {
@@ -530,32 +563,45 @@ form.addEventListener(
 
         if (
             !currentUser ||
-            !isAuthorizedEmail(
-                currentUser.email
-            )
+            !isAuthorized(currentUser.email)
         ) {
             alert(
-                "Please sign in with an authorized DATPrints account."
+                "Sign in using an authorized DATPrints account."
             );
 
             return;
         }
 
+        const customer =
+            getInputValue("customer").trim();
+
+        const item =
+            getInputValue("item").trim();
+
         const quantity =
-            Number(getValue("qty")) || 0;
+            Number(getInputValue("qty")) || 0;
 
         const unitPrice =
-            Number(getValue("price")) || 0;
-
-        /*
-            Correct calculation:
-
-            Total price =
-            quantity × unit price
-        */
+            Number(getInputValue("price")) || 0;
 
         const totalPrice =
             quantity * unitPrice;
+
+        if (!customer) {
+            alert(
+                "Enter the customer name."
+            );
+
+            return;
+        }
+
+        if (!item) {
+            alert(
+                "Enter the item name."
+            );
+
+            return;
+        }
 
         if (quantity < 1) {
             alert(
@@ -574,43 +620,38 @@ form.addEventListener(
         }
 
         const orderData = {
-            customer:
-                getValue("customer").trim(),
+            customer,
 
             contact:
-                getValue("contact").trim(),
+                getInputValue("contact").trim(),
 
-            item:
-                getValue("item").trim(),
+            item,
 
             qty:
                 quantity,
 
             color:
-                getValue("color").trim(),
+                getInputValue("color").trim(),
 
             dueDate:
-                getValue("dueDate"),
+                getInputValue("dueDate"),
 
-            unitPrice:
-                unitPrice,
-
-            totalPrice:
-                totalPrice,
+            unitPrice,
+            totalPrice,
 
             /*
-                Keep price equal to totalPrice for
-                compatibility with older dashboard records.
+                Retained for compatibility with
+                older dashboard versions.
             */
 
             price:
                 totalPrice,
 
             status:
-                getValue("status"),
+                getInputValue("status"),
 
             notes:
-                getValue("notes").trim(),
+                getInputValue("notes").trim(),
 
             updatedAt:
                 serverTimestamp(),
@@ -624,23 +665,23 @@ form.addEventListener(
         submitButton.disabled = true;
 
         submitButton.textContent =
-            editingFirestoreId
+            editingDocumentId
                 ? "Updating..."
                 : "Adding...";
 
         try {
-            if (editingFirestoreId) {
+            if (editingDocumentId) {
                 await updateDoc(
                     doc(
                         db,
                         "orders",
-                        editingFirestoreId
+                        editingDocumentId
                     ),
                     orderData
                 );
             } else {
                 await addDoc(
-                    ordersRef,
+                    ordersReference,
                     {
                         ...orderData,
 
@@ -658,7 +699,7 @@ form.addEventListener(
                 );
             }
 
-            resetOrderForm();
+            resetForm();
         } catch (error) {
             console.error(
                 "Order save error:",
@@ -666,13 +707,16 @@ form.addEventListener(
             );
 
             alert(
-                "The order could not be saved. Check the internet connection and Firestore permissions."
+                `Unable to save the order: ${
+                    error.code ||
+                    error.message
+                }`
             );
         } finally {
             submitButton.disabled = false;
 
             submitButton.textContent =
-                editingFirestoreId
+                editingDocumentId
                     ? "Update Order"
                     : "Add Order";
         }
@@ -681,19 +725,19 @@ form.addEventListener(
 
 
 /* =========================================================
-   RESET FORM
+   FORM RESET
 ========================================================= */
 
-function resetOrderForm() {
-    editingFirestoreId = null;
+function resetForm() {
+    editingDocumentId = null;
 
-    form.reset();
+    orderForm.reset();
 
-    quantityInput.value = 1;
+    setInputValue("qty", 1);
+    setInputValue("status", "Pending");
 
-    document.getElementById(
-        "status"
-    ).value = "Pending";
+    formTitle.textContent =
+        "Add Order";
 
     submitButton.textContent =
         "Add Order";
@@ -705,15 +749,14 @@ function resetOrderForm() {
     updateEstimatedTotal();
 }
 
-
 cancelEditButton.addEventListener(
     "click",
-    resetOrderForm
+    resetForm
 );
 
 
 /* =========================================================
-   ORDER HELPERS
+   ORDER VALUE HELPERS
 ========================================================= */
 
 function getCreatedTime(order) {
@@ -728,15 +771,13 @@ function getCreatedTime(order) {
     const oldTimestamp =
         Number(order.id);
 
-    return Number.isFinite(
-        oldTimestamp
-    )
+    return Number.isFinite(oldTimestamp)
         ? oldTimestamp
         : 0;
 }
 
 
-function getDueDateValue(order) {
+function getDueDateTime(order) {
     if (!order.dueDate) {
         return Number.MAX_SAFE_INTEGER;
     }
@@ -753,30 +794,26 @@ function getDueDateValue(order) {
 
 
 function getStatusPriority(status) {
-    const priorities = {
+    const priority = {
         Pending: 1,
         Printing: 2,
         Ready: 3,
         Delivered: 4
     };
 
-    return priorities[status] || 5;
+    return priority[status] || 5;
 }
 
 
 function getStatusClass(status) {
-    const normalizedStatus =
-        String(status || "")
-            .toLowerCase();
-
     const classes = {
-        pending: "status-pending",
-        printing: "status-printing",
-        ready: "status-ready",
-        delivered: "status-delivered"
+        Pending: "status-pending",
+        Printing: "status-printing",
+        Ready: "status-ready",
+        Delivered: "status-delivered"
     };
 
-    return classes[normalizedStatus] || "";
+    return classes[status] || "";
 }
 
 
@@ -803,49 +840,43 @@ function getDueDateClass(order) {
 }
 
 
-function getOrderUnitPrice(order) {
+function getUnitPrice(order) {
     if (
         order.unitPrice !== undefined &&
         order.unitPrice !== null
     ) {
-        return Number(
-            order.unitPrice
-        ) || 0;
+        return Number(order.unitPrice) || 0;
     }
 
     /*
-        Older orders may only have price.
-        Treat the old price as the unit price
-        until the order is edited and saved.
+        Older records stored the entered price
+        in the price field.
     */
 
     return Number(order.price) || 0;
 }
 
 
-function getOrderTotalPrice(order) {
+function getTotalPrice(order) {
     if (
         order.totalPrice !== undefined &&
         order.totalPrice !== null
     ) {
-        return Number(
-            order.totalPrice
-        ) || 0;
+        return Number(order.totalPrice) || 0;
     }
 
     /*
-        Correct older records dynamically:
-
-        total = old price × quantity
+        Older records:
+        total = old price × quantity.
     */
 
     const quantity =
         Number(order.qty) || 1;
 
-    const oldUnitPrice =
+    const unitPrice =
         Number(order.price) || 0;
 
-    return quantity * oldUnitPrice;
+    return quantity * unitPrice;
 }
 
 
@@ -855,7 +886,7 @@ function getOrderTotalPrice(order) {
 
 function applyFiltersAndSort() {
     const searchTerm =
-        search.value
+        searchInput.value
             .trim()
             .toLowerCase();
 
@@ -871,19 +902,19 @@ function applyFiltersAndSort() {
     const today =
         getLocalDateString();
 
-    const sevenDaysFromNow =
+    const sevenDaysLater =
         new Date();
 
-    sevenDaysFromNow.setDate(
-        sevenDaysFromNow.getDate() + 7
+    sevenDaysLater.setDate(
+        sevenDaysLater.getDate() + 7
     );
 
-    const nextSevenDays =
+    const sevenDaysDate =
         getLocalDateString(
-            sevenDaysFromNow
+            sevenDaysLater
         );
 
-    let filteredOrders =
+    const filteredOrders =
         orders.filter(
             function (order) {
                 const searchableText = [
@@ -892,7 +923,9 @@ function applyFiltersAndSort() {
                     order.contact,
                     order.item,
                     order.color,
-                    order.notes
+                    order.notes,
+                    order.status,
+                    order.dueDate
                 ]
                     .join(" ")
                     .toLowerCase();
@@ -914,9 +947,7 @@ function applyFiltersAndSort() {
                     "Overdue"
                 ) {
                     matchesDueDate =
-                        Boolean(
-                            order.dueDate
-                        ) &&
+                        Boolean(order.dueDate) &&
                         order.dueDate < today &&
                         order.status !==
                             "Delivered";
@@ -935,12 +966,10 @@ function applyFiltersAndSort() {
                     "Next7Days"
                 ) {
                     matchesDueDate =
-                        Boolean(
-                            order.dueDate
-                        ) &&
+                        Boolean(order.dueDate) &&
                         order.dueDate >= today &&
                         order.dueDate <=
-                            nextSevenDays;
+                            sevenDaysDate;
                 }
 
                 if (
@@ -948,11 +977,9 @@ function applyFiltersAndSort() {
                     "Future"
                 ) {
                     matchesDueDate =
-                        Boolean(
-                            order.dueDate
-                        ) &&
+                        Boolean(order.dueDate) &&
                         order.dueDate >
-                            nextSevenDays;
+                            sevenDaysDate;
                 }
 
                 return (
@@ -967,13 +994,11 @@ function applyFiltersAndSort() {
     filteredOrders.sort(
         function (orderA, orderB) {
             /*
-                Delivered remains at the bottom
-                while viewing All Statuses.
+                Delivered orders stay at the bottom
+                while All Statuses is selected.
             */
 
-            if (
-                selectedStatus === "All"
-            ) {
+            if (selectedStatus === "All") {
                 const aDelivered =
                     orderA.status ===
                     "Delivered";
@@ -1007,12 +1032,11 @@ function applyFiltersAndSort() {
             }
 
             if (
-                selectedSort ===
-                "DueSoon"
+                selectedSort === "DueSoon"
             ) {
                 const difference =
-                    getDueDateValue(orderA) -
-                    getDueDateValue(orderB);
+                    getDueDateTime(orderA) -
+                    getDueDateTime(orderB);
 
                 if (difference !== 0) {
                     return difference;
@@ -1025,12 +1049,11 @@ function applyFiltersAndSort() {
             }
 
             if (
-                selectedSort ===
-                "DueLate"
+                selectedSort === "DueLate"
             ) {
                 const difference =
-                    getDueDateValue(orderB) -
-                    getDueDateValue(orderA);
+                    getDueDateTime(orderB) -
+                    getDueDateTime(orderA);
 
                 if (difference !== 0) {
                     return difference;
@@ -1042,7 +1065,7 @@ function applyFiltersAndSort() {
                 );
             }
 
-            const statusDifference =
+            const priorityDifference =
                 getStatusPriority(
                     orderA.status
                 ) -
@@ -1051,14 +1074,14 @@ function applyFiltersAndSort() {
                 );
 
             if (
-                statusDifference !== 0
+                priorityDifference !== 0
             ) {
-                return statusDifference;
+                return priorityDifference;
             }
 
             /*
-                Same status:
-                newest order appears first.
+                Within the same status,
+                newest orders appear first.
             */
 
             return (
@@ -1068,17 +1091,11 @@ function applyFiltersAndSort() {
         }
     );
 
-    renderOrders(
-        filteredOrders
-    );
+    renderOrders(filteredOrders);
 }
 
 
-/* =========================================================
-   FILTER EVENTS
-========================================================= */
-
-search.addEventListener(
+searchInput.addEventListener(
     "input",
     applyFiltersAndSort
 );
@@ -1102,12 +1119,10 @@ clearFiltersButton.addEventListener(
     "click",
 
     function () {
-        search.value = "";
+        searchInput.value = "";
 
         statusFilter.value = "All";
-
         dueDateFilter.value = "All";
-
         sortFilter.value = "Priority";
 
         applyFiltersAndSort();
@@ -1116,18 +1131,14 @@ clearFiltersButton.addEventListener(
 
 
 /* =========================================================
-   RENDER ORDERS
+   TABLE RENDERING
 ========================================================= */
 
 function renderOrders(
-    filteredOrders = orders
+    displayedOrders = orders
 ) {
-    table.innerHTML = "";
-
-    if (
-        filteredOrders.length === 0
-    ) {
-        table.innerHTML = `
+    if (displayedOrders.length === 0) {
+        orderTable.innerHTML = `
             <tr>
                 <td
                     colspan="12"
@@ -1141,109 +1152,106 @@ function renderOrders(
         return;
     }
 
-    filteredOrders.forEach(
-        function (order) {
-            const unitPrice =
-                getOrderUnitPrice(order);
+    orderTable.innerHTML =
+        displayedOrders
+            .map(
+                function (order) {
+                    return `
+                        <tr>
 
-            const totalPrice =
-                getOrderTotalPrice(order);
+                            <td>
+                                ${escapeHTML(order.id)}
+                            </td>
 
-            table.innerHTML += `
-                <tr>
+                            <td>
+                                ${escapeHTML(order.customer)}
+                            </td>
 
-                    <td>
-                        ${escapeHTML(order.id)}
-                    </td>
+                            <td>
+                                ${escapeHTML(order.contact)}
+                            </td>
 
-                    <td>
-                        ${escapeHTML(order.customer)}
-                    </td>
+                            <td>
+                                ${escapeHTML(order.item)}
+                            </td>
 
-                    <td>
-                        ${escapeHTML(order.contact)}
-                    </td>
+                            <td>
+                                ${escapeHTML(order.qty)}
+                            </td>
 
-                    <td>
-                        ${escapeHTML(order.item)}
-                    </td>
+                            <td>
+                                ${escapeHTML(order.color)}
+                            </td>
 
-                    <td>
-                        ${escapeHTML(order.qty)}
-                    </td>
+                            <td class="${getDueDateClass(order)}">
+                                ${escapeHTML(
+                                    order.dueDate ||
+                                    "No due date"
+                                )}
+                            </td>
 
-                    <td>
-                        ${escapeHTML(order.color)}
-                    </td>
+                            <td>
+                                ₱${formatMoney(
+                                    getUnitPrice(order)
+                                )}
+                            </td>
 
-                    <td class="${getDueDateClass(order)}">
-                        ${escapeHTML(
-                            order.dueDate ||
-                            "No due date"
-                        )}
-                    </td>
+                            <td>
+                                ₱${formatMoney(
+                                    getTotalPrice(order)
+                                )}
+                            </td>
 
-                    <td>
-                        ₱${formatMoney(unitPrice)}
-                    </td>
+                            <td>
+                                <span
+                                    class="status-badge ${getStatusClass(order.status)}"
+                                >
+                                    ${escapeHTML(
+                                        order.status ||
+                                        "Pending"
+                                    )}
+                                </span>
+                            </td>
 
-                    <td>
-                        ₱${formatMoney(totalPrice)}
-                    </td>
+                            <td>
+                                ${escapeHTML(order.notes)}
+                            </td>
 
-                    <td>
-                        <span
-                            class="status-badge ${getStatusClass(order.status)}"
-                        >
-                            ${escapeHTML(
-                                order.status ||
-                                "Pending"
-                            )}
-                        </span>
-                    </td>
+                            <td class="action-cell">
 
-                    <td>
-                        ${escapeHTML(order.notes)}
-                    </td>
+                                <button
+                                    type="button"
+                                    class="action-button edit-button"
+                                    data-action="edit"
+                                    data-id="${escapeHTML(
+                                        order.firestoreId
+                                    )}"
+                                >
+                                    Edit
+                                </button>
 
-                    <td class="action-cell">
+                                <button
+                                    type="button"
+                                    class="action-button delete-button"
+                                    data-action="delete"
+                                    data-id="${escapeHTML(
+                                        order.firestoreId
+                                    )}"
+                                >
+                                    Delete
+                                </button>
 
-                        <button
-                            type="button"
-                            class="actionBtn edit"
-                            data-action="edit"
-                            data-id="${escapeHTML(
-                                order.firestoreId
-                            )}"
-                        >
-                            Edit
-                        </button>
+                            </td>
 
-                        <button
-                            type="button"
-                            class="actionBtn delete"
-                            data-action="delete"
-                            data-id="${escapeHTML(
-                                order.firestoreId
-                            )}"
-                        >
-                            Delete
-                        </button>
-
-                    </td>
-
-                </tr>
-            `;
-        }
-    );
+                        </tr>
+                    `;
+                }
+            )
+            .join("");
 }
 
 
-/* =========================================================
-   TABLE BUTTON EVENTS
-========================================================= */
-
-table.addEventListener(
+orderTable.addEventListener(
     "click",
 
     function (event) {
@@ -1256,22 +1264,21 @@ table.addEventListener(
             return;
         }
 
+        const documentId =
+            button.dataset.id;
+
         if (
             button.dataset.action ===
             "edit"
         ) {
-            editOrder(
-                button.dataset.id
-            );
+            editOrder(documentId);
         }
 
         if (
             button.dataset.action ===
             "delete"
         ) {
-            deleteOrder(
-                button.dataset.id
-            );
+            deleteOrder(documentId);
         }
     }
 );
@@ -1281,13 +1288,13 @@ table.addEventListener(
    EDIT ORDER
 ========================================================= */
 
-function editOrder(firestoreId) {
+function editOrder(documentId) {
     const order =
         orders.find(
             function (currentOrder) {
                 return (
                     currentOrder.firestoreId ===
-                    firestoreId
+                    documentId
                 );
             }
         );
@@ -1297,53 +1304,56 @@ function editOrder(firestoreId) {
         return;
     }
 
-    editingFirestoreId =
-        firestoreId;
+    editingDocumentId =
+        documentId;
 
-    setValue(
+    setInputValue(
         "customer",
         order.customer
     );
 
-    setValue(
+    setInputValue(
         "contact",
         order.contact
     );
 
-    setValue(
+    setInputValue(
         "item",
         order.item
     );
 
-    setValue(
+    setInputValue(
         "qty",
         order.qty
     );
 
-    setValue(
+    setInputValue(
         "color",
         order.color
     );
 
-    setValue(
+    setInputValue(
         "dueDate",
         order.dueDate
     );
 
-    setValue(
+    setInputValue(
         "price",
-        getOrderUnitPrice(order)
+        getUnitPrice(order)
     );
 
-    setValue(
+    setInputValue(
         "status",
         order.status
     );
 
-    setValue(
+    setInputValue(
         "notes",
         order.notes
     );
+
+    formTitle.textContent =
+        "Edit Order";
 
     submitButton.textContent =
         "Update Order";
@@ -1354,7 +1364,7 @@ function editOrder(firestoreId) {
 
     updateEstimatedTotal();
 
-    form.scrollIntoView({
+    orderForm.scrollIntoView({
         behavior: "smooth",
         block: "start"
     });
@@ -1365,15 +1375,13 @@ function editOrder(firestoreId) {
    DELETE ORDER
 ========================================================= */
 
-async function deleteOrder(
-    firestoreId
-) {
+async function deleteOrder(documentId) {
     const order =
         orders.find(
             function (currentOrder) {
                 return (
                     currentOrder.firestoreId ===
-                    firestoreId
+                    documentId
                 );
             }
         );
@@ -1400,15 +1408,15 @@ async function deleteOrder(
             doc(
                 db,
                 "orders",
-                firestoreId
+                documentId
             )
         );
 
         if (
-            editingFirestoreId ===
-            firestoreId
+            editingDocumentId ===
+            documentId
         ) {
-            resetOrderForm();
+            resetForm();
         }
     } catch (error) {
         console.error(
@@ -1417,41 +1425,28 @@ async function deleteOrder(
         );
 
         alert(
-            "The order could not be deleted."
+            `Unable to delete the order: ${
+                error.code ||
+                error.message
+            }`
         );
     }
 }
 
 
 /* =========================================================
-   DASHBOARD
+   DASHBOARD TOTALS
 ========================================================= */
 
 function updateDashboard() {
-    const totalOrdersElement =
-        document.getElementById(
-            "totalOrders"
-        );
-
-    const activeOrdersElement =
-        document.getElementById(
-            "pendingOrders"
-        );
-
-    const completedOrdersElement =
-        document.getElementById(
-            "completedOrders"
-        );
-
-    const totalSalesElement =
-        document.getElementById(
-            "totalSales"
-        );
-
-    totalOrdersElement.textContent =
+    document.getElementById(
+        "totalOrders"
+    ).textContent =
         orders.length;
 
-    activeOrdersElement.textContent =
+    document.getElementById(
+        "pendingOrders"
+    ).textContent =
         orders.filter(
             function (order) {
                 return (
@@ -1461,7 +1456,9 @@ function updateDashboard() {
             }
         ).length;
 
-    completedOrdersElement.textContent =
+    document.getElementById(
+        "completedOrders"
+    ).textContent =
         orders.filter(
             function (order) {
                 return (
@@ -1476,35 +1473,46 @@ function updateDashboard() {
             function (sum, order) {
                 return (
                     sum +
-                    getOrderTotalPrice(order)
+                    getTotalPrice(order)
                 );
             },
             0
         );
 
-    totalSalesElement.textContent =
+    document.getElementById(
+        "totalSales"
+    ).textContent =
         formatMoney(totalSales);
 }
 
 
 /* =========================================================
-   LIGHT AND DARK MODE
+   THEME
 ========================================================= */
 
-const savedTheme =
-    localStorage.getItem("theme");
+function updateThemeButton() {
+    const darkMode =
+        document.body.classList.contains(
+            "dark-mode"
+        );
 
-if (savedTheme === "dark") {
+    themeToggle.textContent =
+        darkMode
+            ? "☀️ Light Mode"
+            : "🌙 Dark Mode";
+}
+
+
+if (
+    localStorage.getItem("theme") ===
+    "dark"
+) {
     document.body.classList.add(
         "dark-mode"
     );
-
-    themeToggle.textContent =
-        "☀️ Light Mode";
-} else {
-    themeToggle.textContent =
-        "🌙 Dark Mode";
 }
+
+updateThemeButton();
 
 
 themeToggle.addEventListener(
@@ -1515,27 +1523,18 @@ themeToggle.addEventListener(
             "dark-mode"
         );
 
-        const darkModeIsActive =
+        const darkMode =
             document.body.classList.contains(
                 "dark-mode"
             );
 
-        if (darkModeIsActive) {
-            localStorage.setItem(
-                "theme",
-                "dark"
-            );
+        localStorage.setItem(
+            "theme",
+            darkMode
+                ? "dark"
+                : "light"
+        );
 
-            themeToggle.textContent =
-                "☀️ Light Mode";
-        } else {
-            localStorage.setItem(
-                "theme",
-                "light"
-            );
-
-            themeToggle.textContent =
-                "🌙 Dark Mode";
-        }
+        updateThemeButton();
     }
 );
