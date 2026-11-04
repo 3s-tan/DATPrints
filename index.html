@@ -16,17 +16,20 @@
 
     <title>DATPrints Order Manager</title>
 
-    <link rel="stylesheet" href="styles.css">
+    <link
+        rel="stylesheet"
+        href="styles.css"
+    >
 </head>
 
 <body>
 
-    <!-- =====================================
-         LOGIN SCREEN
-    ====================================== -->
+    <!-- LOGIN SCREEN -->
 
-    <section id="loginScreen" class="login-screen">
-
+    <section
+        id="loginScreen"
+        class="login-screen"
+    >
         <div class="login-card">
 
             <div class="login-logo">
@@ -35,7 +38,7 @@
 
             <h1>DATPrints</h1>
 
-            <p>
+            <p class="login-subtitle">
                 3D Printing Order Manager
             </p>
 
@@ -59,21 +62,25 @@
             ></p>
 
         </div>
-
     </section>
 
 
-    <!-- =====================================
-         MAIN APPLICATION
-    ====================================== -->
+    <!-- MAIN DASHBOARD -->
 
-    <main id="appContainer" class="app-container hidden">
+    <main
+        id="appContainer"
+        class="app-container hidden"
+    >
 
         <!-- HEADER -->
 
         <header class="page-header">
 
-            <div class="header-top">
+            <div class="header-brand">
+
+                <div class="small-logo">
+                    DP
+                </div>
 
                 <div>
                     <h1>DATPrints</h1>
@@ -81,6 +88,18 @@
                     <p>
                         3D Printing Order Manager
                     </p>
+                </div>
+
+            </div>
+
+            <div class="header-account">
+
+                <div class="signed-in-user">
+
+                    <span>Signed in as</span>
+
+                    <strong id="userEmail"></strong>
+
                 </div>
 
                 <div class="header-actions">
@@ -105,22 +124,15 @@
 
             </div>
 
-            <div class="signed-in-user">
-
-                <span>Signed in as:</span>
-
-                <strong id="userEmail"></strong>
-
-            </div>
-
         </header>
 
 
-        <!-- DASHBOARD SUMMARY -->
+        <!-- DASHBOARD CARDS -->
 
         <section class="dashboard-grid">
 
             <article class="dashboard-card">
+
                 <span class="dashboard-label">
                     Total Orders
                 </span>
@@ -128,9 +140,15 @@
                 <strong id="totalOrders">
                     0
                 </strong>
+
+                <small>
+                    All recorded orders
+                </small>
+
             </article>
 
             <article class="dashboard-card">
+
                 <span class="dashboard-label">
                     Active Orders
                 </span>
@@ -138,9 +156,15 @@
                 <strong id="pendingOrders">
                     0
                 </strong>
+
+                <small>
+                    Not yet delivered
+                </small>
+
             </article>
 
             <article class="dashboard-card">
+
                 <span class="dashboard-label">
                     Delivered
                 </span>
@@ -148,9 +172,15 @@
                 <strong id="completedOrders">
                     0
                 </strong>
+
+                <small>
+                    Completed orders
+                </small>
+
             </article>
 
             <article class="dashboard-card">
+
                 <span class="dashboard-label">
                     Total Sales
                 </span>
@@ -158,20 +188,38 @@
                 <strong>
                     ₱<span id="totalSales">0.00</span>
                 </strong>
+
+                <small>
+                    Value of all orders
+                </small>
+
             </article>
 
         </section>
 
 
-        <!-- ORDER FORM -->
+        <!-- ADD ORDER FORM -->
 
         <section class="form-section">
 
-            <h2>Add Order</h2>
+            <div class="section-heading">
+
+                <div>
+                    <h2 id="formTitle">
+                        Add Order
+                    </h2>
+
+                    <p>
+                        Enter the customer's order details.
+                    </p>
+                </div>
+
+            </div>
 
             <form id="orderForm">
 
                 <div class="form-group">
+
                     <label for="customer">
                         Customer Name
                     </label>
@@ -182,9 +230,11 @@
                         required
                         autocomplete="name"
                     >
+
                 </div>
 
                 <div class="form-group">
+
                     <label for="contact">
                         Contact
                     </label>
@@ -194,9 +244,11 @@
                         id="contact"
                         autocomplete="tel"
                     >
+
                 </div>
 
                 <div class="form-group">
+
                     <label for="item">
                         Item
                     </label>
@@ -206,9 +258,11 @@
                         id="item"
                         required
                     >
+
                 </div>
 
                 <div class="form-group">
+
                     <label for="qty">
                         Quantity
                     </label>
@@ -217,12 +271,15 @@
                         type="number"
                         id="qty"
                         min="1"
+                        step="1"
                         value="1"
                         required
                     >
+
                 </div>
 
                 <div class="form-group">
+
                     <label for="color">
                         Color
                     </label>
@@ -231,9 +288,11 @@
                         type="text"
                         id="color"
                     >
+
                 </div>
 
                 <div class="form-group">
+
                     <label for="dueDate">
                         Due Date
                     </label>
@@ -243,9 +302,11 @@
                         id="dueDate"
                         required
                     >
+
                 </div>
 
                 <div class="form-group">
+
                     <label for="price">
                         Unit Price
                     </label>
@@ -255,36 +316,26 @@
                         id="price"
                         min="0"
                         step="0.01"
+                        placeholder="0.00"
                         required
                     >
 
                     <small>
                         Price of one item
                     </small>
-                </div>
-
-                <div class="form-group estimated-total-box">
-
-                    <span>
-                        Estimated Total
-                    </span>
-
-                    <strong id="estimatedTotal">
-                        ₱0.00
-                    </strong>
-
-                    <small id="calculationText">
-                        1 × ₱0.00
-                    </small>
 
                 </div>
 
                 <div class="form-group">
+
                     <label for="status">
                         Status
                     </label>
 
-                    <select id="status" required>
+                    <select
+                        id="status"
+                        required
+                    >
                         <option value="Pending">
                             Pending
                         </option>
@@ -301,9 +352,27 @@
                             Delivered
                         </option>
                     </select>
+
+                </div>
+
+                <div class="estimated-total-box">
+
+                    <span>
+                        Estimated Total
+                    </span>
+
+                    <strong id="estimatedTotal">
+                        ₱0.00
+                    </strong>
+
+                    <small id="calculationText">
+                        1 × ₱0.00
+                    </small>
+
                 </div>
 
                 <div class="form-group form-group-full">
+
                     <label for="notes">
                         Notes
                     </label>
@@ -311,23 +380,30 @@
                     <textarea
                         id="notes"
                         rows="3"
+                        placeholder="Optional order notes"
                     ></textarea>
+
                 </div>
 
-                <button
-                    type="submit"
-                    id="submitButton"
-                >
-                    Add Order
-                </button>
+                <div class="form-actions">
 
-                <button
-                    type="button"
-                    id="cancelEditButton"
-                    class="cancel-edit-button hidden"
-                >
-                    Cancel Edit
-                </button>
+                    <button
+                        type="submit"
+                        id="submitButton"
+                        class="submit-button"
+                    >
+                        Add Order
+                    </button>
+
+                    <button
+                        type="button"
+                        id="cancelEditButton"
+                        class="cancel-edit-button hidden"
+                    >
+                        Cancel Edit
+                    </button>
+
+                </div>
 
             </form>
 
@@ -340,12 +416,20 @@
 
             <div class="orders-header">
 
-                <h2>Order List</h2>
+                <div>
+
+                    <h2>Order List</h2>
+
+                    <p>
+                        Orders update automatically across devices.
+                    </p>
+
+                </div>
 
                 <input
                     type="search"
                     id="search"
-                    placeholder="Search customer, item, contact, color..."
+                    placeholder="Search orders..."
                 >
 
             </div>
@@ -358,7 +442,7 @@
                 <div class="filter-group">
 
                     <label for="statusFilter">
-                        Filter Status
+                        Status
                     </label>
 
                     <select id="statusFilter">
@@ -387,11 +471,10 @@
 
                 </div>
 
-
                 <div class="filter-group">
 
                     <label for="dueDateFilter">
-                        Filter Due Date
+                        Due Date
                     </label>
 
                     <select id="dueDateFilter">
@@ -420,11 +503,10 @@
 
                 </div>
 
-
                 <div class="filter-group">
 
                     <label for="sortFilter">
-                        Sort Orders
+                        Sort
                     </label>
 
                     <select id="sortFilter">
@@ -438,22 +520,21 @@
                         </option>
 
                         <option value="DueSoon">
-                            Due Date: Earliest First
+                            Earliest Due Date
                         </option>
 
                         <option value="DueLate">
-                            Due Date: Latest First
+                            Latest Due Date
                         </option>
 
                     </select>
 
                 </div>
 
-
                 <button
                     type="button"
                     id="clearFilters"
-                    class="clear-filter-btn"
+                    class="clear-filter-button"
                 >
                     Clear Filters
                 </button>
@@ -489,8 +570,11 @@
                     <tbody id="orderTable">
 
                         <tr>
-                            <td colspan="12" class="empty-table">
-                                Sign in to load orders.
+                            <td
+                                colspan="12"
+                                class="empty-table"
+                            >
+                                Loading orders...
                             </td>
                         </tr>
 
@@ -505,9 +589,12 @@
     </main>
 
 
-    <!-- Must remain type="module" -->
+    <!-- Firebase requires module support -->
 
-    <script type="module" src="script.js"></script>
+    <script
+        type="module"
+        src="script.js"
+    ></script>
 
 </body>
 
