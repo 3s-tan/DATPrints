@@ -289,8 +289,11 @@ googleSignInButton.addEventListener(
                 loginMessage.textContent =
                     "This website domain is not authorized in Firebase Authentication.";
             } else {
+                console.error("Firebase Auth Error:", error);
+
                 loginMessage.textContent =
-                    "Google sign-in failed. Please try again.";
+                    `Google sign-in failed: ${error.code}`;
+}
             }
         } finally {
             googleSignInButton.disabled = false;
